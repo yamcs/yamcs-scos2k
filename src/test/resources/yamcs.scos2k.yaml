@@ -1,0 +1,15 @@
+mdb:
+  - type: "org.yamcs.scos2k.MibLoader"
+    args: 
+        path: "/opt/CCS/TestPacks/_COMMON/data/ASCII/"        
+        epoch: "UNIX"
+        #TC specific settings
+        TC:   
+           # default size in bytes of the size tag for variable length strings and bytestrings
+           vblParamLengthBytes: 0
+        #TM specific settings
+        TM:  
+            vblParamLengthBytes: 1
+            # byte offset from beginning of the packet where the type and subType are read from     
+            typeOffset: 7
+            subTypeOffset: 8

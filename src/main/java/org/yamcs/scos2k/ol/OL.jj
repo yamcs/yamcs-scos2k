@@ -1,0 +1,378 @@
+options{
+  JDK_VERSION ="1.8";
+}
+
+
+PARSER_BEGIN(OLParser)
+package org.yamcs.scos2k.ol;
+import java.util.*;
+import org.yamcs.scos2k.*;
+import static org.yamcs.scos2k.ol.ExpressionCode.getCode;
+
+public class OLParser extends BaseOLParser {
+  private StringBuilder body;
+  
+  int isize = 2;
+  private void sappend(String s) {
+      body.append(" ").append(s).append(" ");
+    }
+    
+    private void indent() {
+      for(int i=0; i<isize; i++) {
+        body.append("    ");
+      }
+    }
+
+    private void nl() {
+      body.append("\n");
+    }
+    protected void parse(StringBuilder body) throws ParseException {
+       this.body = body;
+       Formula();
+    }
+}
+
+PARSER_END(OLParser)
+
+SKIP :
+{
+  " "
+| "\t"
+| "\n"
+| "\r"
+| < "#" (~["\n","\r"])* ("\n" | "\r" | "\r\n")>
+}
+
+/**keywords**/
+TOKEN :
+{
+  <IF : "if">
+| <THEN : "then">
+| <ELSE : "else">
+| <ENDIF : "endif">
+| <RETURN : "return">
+| <TRUE : "TRUE">
+| <FALSE : "FALSE">
+| <SIN : "sin">
+| <COS : "cos">
+| <TAN : "tan">
+| <COTAN : "cotan">
+| <ARCSIN : "arcsin">
+| <ARCCOS : "arccos">
+| <ARCTAN : "arctan">
+| <ARCCOTAN : "arccotan">
+| <SYSTEM_TIME : "system_time">
+| <SYSTEM_DATE : "system_date">
+| <AND : "and">
+| <OR : "or">
+| <NOR : "nor">
+| <LOR : "lor">
+| <XOR : "xor">
+| <LAND : "land">
+| <NOT : "not">
+| <LNOT : "lnot">
+| <SYNTH : "synth">
+}
+
+TOKEN :
+{
+  < IDENTIFIER: ("$")? ["a"-"z","A"-"Z","_"] ( ["a"-"z","A"-"Z","_","0"-"9"] )* ("." ("eng" | "raw" | "time" | "mon" | "valid" | "rawvalid" | "engvalid"))? >
+|
+  < INTEGER_LITERAL: ("-")? ( ["0"-"9","_"] )+ >
+|
+  < FLOATING_POINT_LITERAL:
+        ("-")? (["0"-"9"]) (["0"-"9","_"])* "." (["0"-"9","_"])* (<EXPONENT>)?
+      | ("-")? "." (["0"-"9","_"])+ (<EXPONENT>)?
+      | ("-")? (["0"-"9","_"])+ (<EXPONENT>)?
+  >
+|
+  < #EXPONENT: ["e","E"] (["+","-"])? (["0"-"9"])+ >
+}
+
+void Formula() :  {} 
+{
+    StatementList()
+    <EOF>
+}
+
+void StatementList() : {}
+{
+  (Statement())*
+}
+
+void Statement() : 
+{ 
+   ExpressionCode ec;
+}
+{
+   {indent();}
+ (
+      ConditionalStatement() ";" {body.append("\n");}
+   |  LOOKAHEAD(2) AssignmentStatement() ";" {body.append(";\n");}
+   |  LOOKAHEAD(2) (<RETURN>)?  ec = Expression() ";"
+      {
+        body.append("return ");      
+        body.append(getReturnCode(ec));
+        body.append(";\n");
+      }
+  )    
+}
+
+void ConditionalStatement() : {
+	ExpressionCode ec;
+}
+{
+  <IF> 
+     ec = Expression()
+     {body.append("if(").append(ec.code).append(") {\n"); isize++;}
+  <THEN> 
+     StatementList()
+  (
+   <ELSE>
+      {isize--; indent(); body.append("} else {\n"); isize++; }
+   StatementList() 
+  )?
+   <ENDIF>
+   {isize--; indent(); body.append("}");}
+}
+
+
+
+
+void AssignmentStatement() :
+{ Token t; 
+  ExpressionCode ec;
+}
+{
+   t = <IDENTIFIER> 
+   ":=" 
+   ec = Expression()
+   {
+      String varname = t.image;
+      if(isLocalVar(varname)) {
+          addVariable(varname, ec.type);
+          body.append(varname); 
+      	  body.append(" = ");
+          body.append(ec.code);
+      } else {
+          body.append("globalVariables.set(\"").append(varname).append('"')
+            .append(", ").append(ec.code).append(")");
+      }
+      
+      
+      
+   }
+}
+
+ExpressionCode Expression() : 
+{
+   ExpressionCode ec1, ec2 = null;
+   Operation op = null;
+} 
+{
+  (ec1 = LogicalExpression() [op = LogicOp() ec2 = Expression()])
+  { return getCode(ec1, ec2, op);}
+}
+
+ExpressionCode LogicalExpression() : {
+   ExpressionCode ec1, ec2 = null;
+   Operation op = null;
+}
+{
+  (ec1 = ShiftExpression() [ op = LogicOp1() ec2 = LogicalExpression()])
+  { return getCode(ec1, ec2, op);}
+}
+
+ExpressionCode ShiftExpression() :  {
+   ExpressionCode ec1, ec2 = null;
+   Operation op = null;
+}
+{
+    (ec1 = RelationlExpression() [op = ShiftOp() ec2 = ShiftExpression()])
+    { return getCode(ec1, ec2, op);}
+}
+
+ExpressionCode RelationlExpression() :  {
+ ExpressionCode ec1, ec2 = null;
+ Operation op = null;
+}
+{
+    (ec1 = AdditiveExpression() [op = RelOp() ec2 = RelationlExpression()] )
+    { return getCode(ec1, ec2, op);}
+}
+
+
+ExpressionCode AdditiveExpression() :  {
+ ExpressionCode ec1, ec2 = null;
+ Operation op = null;
+}
+{
+    (ec1 = MultiplicativeExpression() [op = AddOp() ec2 = AdditiveExpression()])
+    
+    { return getCode(ec1, ec2, op);}
+} 
+
+
+ExpressionCode MultiplicativeExpression() :  {
+ ExpressionCode ec1, ec2 = null;
+ Operation op = null;
+}
+{
+   (
+     ec1 = UnaryExpression() [op = MulOp() ec2 = MultiplicativeExpression()]  
+   )
+   
+   { return getCode(ec1, ec2, op);}
+}
+
+
+ExpressionCode UnaryExpression() : {
+  ExpressionCode ec1 = null;
+  Operation op = null;
+}
+{
+   (   "+"  {op = Operation.PLUS;}
+     | "-" {op = Operation.MINUS;}
+     | <NOT> {op = Operation.BITW_NOT;}
+     | <LNOT> {op = Operation.LOGIC_NOT;}
+   )? ec1 = PrimaryExpression()
+   {
+       if(op==null) {
+          return ec1;
+        } else {
+           return new ExpressionCode(ec1.type, op.code+ec1.code);
+        }
+    }   
+}
+
+ExpressionCode PrimaryExpression() :
+{
+  String fn;
+  Token t;
+  ExpressionCode ec;
+  List<ExpressionCode> l;
+}
+{
+     ec = Constant() {return ec;}
+   | t = <IDENTIFIER>  {return getIdentifierCode(t.image);}
+   | "(" ec = Expression() ")" { return new ExpressionCode(ec.type, "("+ec.code+")");}
+   | ec = Synth() {return ec;}
+   | fn = FunctionName() "(" l = ArgumentList() ")" 
+     { 
+       StringBuilder sb = new StringBuilder();
+       sb.append(OLFunction.getJavaFunctionName(fn, l.size()));
+       sb.append("(");
+       boolean first = true;
+       for(ExpressionCode ec1: l) {
+           if(first) {
+              first = false;
+            } else {
+               sb.append(", ");
+            }
+            sb.append(ec1.code);
+       }       
+       sb.append(")");
+       
+       return new ExpressionCode(Type.DOUBLE, sb.toString());
+     }
+}
+List<ExpressionCode> ArgumentList() : 
+{
+ List<ExpressionCode> l = new ArrayList<ExpressionCode>();
+ ExpressionCode ec;
+}
+{
+    (
+      ec = Expression() {l.add(ec);}
+      ("," ec = Expression() {l.add(ec);} )*
+    )
+    {return l;}
+}
+
+String FunctionName () :
+{Token t;}
+{
+  (
+    t = <SIN> | t = <COS> | t = <TAN> | t = <COTAN> | t = <ARCSIN>
+  | t = <ARCCOS> | t = <ARCTAN> | t = <ARCCOTAN> | t = <SYSTEM_TIME>
+  | t = <SYSTEM_DATE>
+  )
+   {return t.image;}
+}
+
+
+ExpressionCode Synth() :
+{
+  List<String> paraList = new ArrayList<String>();
+  Token t;
+}
+{
+    <SYNTH> "(" 
+       t = <IDENTIFIER> {paraList.add(t.image); } 
+       ("," t = <IDENTIFIER>  {paraList.add(t.image); } )* 
+    ")" 
+    {
+        return getSynthExpression(paraList);
+    }
+}
+ExpressionCode Constant () : 
+{Token t;
+}
+{
+    t = <TRUE>  {return new ExpressionCode(Type.BOOLEAN, "Boolean.TRUE");}
+    | t = <FALSE> {return new ExpressionCode(Type.BOOLEAN, "Boolean.FALSE");}
+    | t = <INTEGER_LITERAL>   {return new ExpressionCode(Type.LONG, t.image);}
+    | t = <FLOATING_POINT_LITERAL> {return new ExpressionCode(Type.DOUBLE, t.image);}
+}
+Operation RelOp() :
+{}
+{
+    "<"  {return Operation.SMALLER_THAN;}
+  | "<=" {return Operation.SMALLER_THAN_EQ;}
+  | ">"  {return Operation.BIGGER_THAN;}
+  | ">=" {return Operation.BIGGER_THAN_EQ;}
+  
+}
+
+Operation LogicOp1() : 
+{}
+{
+    "==" { return Operation.EQUAL;} 
+  | "<>" { return Operation.DIFFER;}
+}
+
+Operation ShiftOp() :
+{}
+{
+     "<<"   {return Operation.SHIFT_LEFT;}
+   | ">>" {return Operation.SHIFT_RIGHT;}
+}
+
+Operation AddOp() : 
+{}
+{
+    "+" { return Operation.PLUS;}
+  | "-" { return Operation.MINUS;}
+}
+
+Operation MulOp() : 
+{}
+{
+  
+   "*" { return Operation.STAR;}
+  | "**" { return Operation.POW;}
+  | "/" { return Operation.SLASH;}
+  | "%" { return Operation.MODULUS;}
+    
+}
+
+Operation LogicOp() :
+{}
+{
+     <OR> { return Operation.BITW_OR;}
+  |  <AND> { return Operation.BITW_AND;}
+  |  <LOR> { return Operation.LOGIC_OR;}
+  |  <LAND> { return Operation.LOGIC_AND;}
+  |  <XOR> { return Operation.BITW_XOR;}
+}
+
