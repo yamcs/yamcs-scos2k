@@ -33,6 +33,6 @@ Not immediate priority:
 * event generation (OCP_TYPE=E) not supported
 * status consistency checks (OCP_TYPE=C, PCF_USCON=Y) not supported
 * arguments of type "Command Id" (CPC_CATEG=A) are not supported. These can be used to insert one command inside another one. Instead a binary command argument is being used.
-* SCOS 2K allows multiple command arguments with the same name. This is not supported in Yamcs (and in XTCE) so duplicate arguments are renamed arg_<n>  with n increasing for each argument. 
+* SCOS 2K allows multiple command arguments with the same name. This is not supported in Yamcs (and in XTCE) so duplicate arguments are renamed arg_&lt;n&gt;  with n increasing for each argument. 
 * no command stack support.
  
