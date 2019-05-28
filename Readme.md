@@ -8,11 +8,18 @@ Then you can add the following in the mdb.yaml:
 scos-mib:
   - type: "org.yamcs.scos2k.MibLoader"
     args: 
-        path: "/path/to/ASCII/"
-        # byte offset from beginning of the packet where the type and subType are read from     
-        typeOffset: 7
-        subTypeOffset: 8
+        path: "/opt/CCS/TestPacks/_COMMON/data/ASCII/"        
         epoch: "UNIX"
+        #TC specific settings
+        TC:   
+           # default size in bytes of the size tag for variable length strings and bytestrings
+           vblParamLengthBytes: 0
+        #TM specific settings
+        TM:  
+            vblParamLengthBytes: 1
+            # byte offset from beginning of the packet where the type and subType are read from     
+            typeOffset: 7
+            subTypeOffset: 8
 </pre>
 
 Note: currently all the test files are not stored as part of this project (they are stored in a private repository) because the MIB used for test is taken from another project and cannot be made public. If anyone is willing to contribute a MIB that can be made public, we would gladly change the tests to use that MIB instead.
