@@ -8,7 +8,7 @@ Then you can add the following in the mdb.yaml:
 scos-mib:
   - type: "org.yamcs.scos2k.MibLoader"
     args: 
-        path: "/opt/CCS/TestPacks/_COMMON/data/ASCII/"        
+        path: "/path/to/ASCII/"        
         epoch: "UNIX"
         #TC specific settings
         TC:   
