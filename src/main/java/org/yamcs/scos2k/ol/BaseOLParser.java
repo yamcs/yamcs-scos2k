@@ -17,10 +17,8 @@ import org.yamcs.xtce.FloatParameterType;
 import org.yamcs.xtce.IntegerDataEncoding;
 import org.yamcs.xtce.IntegerParameterType;
 import org.yamcs.xtce.NumericDataEncoding;
-import org.yamcs.xtce.NumericParameterType;
 import org.yamcs.xtce.ParameterType;
 import org.yamcs.xtceproc.DataEncodingDecoder;
-import org.yamcs.xtceproc.ParameterTypeProcessor;
 import org.yamcs.xtceproc.ParameterTypeUtils;
 
 /**

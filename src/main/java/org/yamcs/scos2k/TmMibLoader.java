@@ -14,8 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.janino.SimpleCompiler;
-import org.codehaus.janino.util.LocatedException;
 import org.yamcs.ConfigurationException;
 import org.yamcs.YConfiguration;
 import org.yamcs.scos2k.MibLoaderBits.CafRecord;
@@ -426,9 +426,9 @@ public abstract class TmMibLoader extends BaseMibLoader {
             throw new DatabaseLoadException("Failed to parse the OL file " + f, e);
         } catch (IOException e) {
             throw new DatabaseLoadException(e);
-        } catch (LocatedException e) {
+        } catch (CompileException e) {
             throw new DatabaseLoadException("Failed to compile the generated java code " + code, e);
-        }
+        } 
     }
 
     protected void loadTelemetryParams() throws DatabaseLoadException {
@@ -559,7 +559,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 ReferenceTime rt = new ReferenceTime(timeEpoch);
                 ptype.setReferenceTime(rt);
                 ptype.setEncoding(encoding);
-                ptype.setScaling(true, 0, 0.001);
+                ptype.setScaling(0, 0.001);
                 return ptype;
             } else if (ptc == 10) {
                 StringParameterType ptype = new StringParameterType("reltime_" + ptc + "_" + pfc);

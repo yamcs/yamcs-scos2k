@@ -120,7 +120,7 @@ public class MibLoaderBits {
                 sizeInBits = 64;
             } else {
                 throw new MibLoadException(ctx,
-                        "Unknonw parameter type (" + ptc + "," + pfc + ")");
+                        "Unknown parameter type (" + ptc + "," + pfc + ")");
             }
             IntegerDataEncoding encoding = new IntegerDataEncoding(sizeInBits);
             if (ptc == 3) {
@@ -139,11 +139,11 @@ public class MibLoaderBits {
             } else if (pfc == 4) {
                 return new FloatDataEncoding(48, org.yamcs.xtce.FloatDataEncoding.Encoding.MILSTD_1750A);
             } else {
-                throw new MibLoadException(ctx, "Unknonw parameter type (" + ptc + "," + pfc + ")");
+                throw new MibLoadException(ctx, "Unknown parameter type (" + ptc + "," + pfc + ")");
             }
         } else if (ptc == 6) {
             if (pfc < 1 || pfc > 64) {
-                throw new MibLoadException(ctx, "Unknonw parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
+                throw new MibLoadException(ctx, "Unknown parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
             }
             //BinaryDataEncoding encoding = new BinaryDataEncoding(Type.FIXED_SIZE);
             //encoding.setSizeInBits(pfc);
@@ -152,7 +152,7 @@ public class MibLoaderBits {
             return encoding;
         } else if (ptc == 7) {
             if (pfc < 0) {
-                throw new MibLoadException(ctx, "Unknonw parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
+                throw new MibLoadException(ctx, "Unknown parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
             }
             if (pfc == 0) {
                 if (vplb < 0) {
@@ -168,7 +168,7 @@ public class MibLoaderBits {
             }
         } else if (ptc == 8) {
             if (pfc < 0) {
-                throw new MibLoadException(ctx, "Unknonw parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
+                throw new MibLoadException(ctx, "Unknown parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
             }
             if (pfc == 0) {
                 if (vplb < 0) {
@@ -184,7 +184,7 @@ public class MibLoaderBits {
             }
         } else if (ptc == 9) {
             if (pfc < 0 || (pfc > 18 && pfc != 30)) {
-                throw new MibLoadException(ctx, "Unknonw parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
+                throw new MibLoadException(ctx, "Unknown parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
             }
             BinaryDataEncoding encoding = new BinaryDataEncoding(Type.CUSTOM);
             CustomAlgorithm customAlgo = new CustomAlgorithm("absolute_cuc_" + ptc + "_" + pfc);
@@ -196,7 +196,7 @@ public class MibLoaderBits {
             return encoding;
         } else if (ptc == 10) {
             if (pfc < 3 || pfc > 18) {
-                throw new MibLoadException(ctx, "Unknonw parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
+                throw new MibLoadException(ctx, "Unknown parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
             }
             BinaryDataEncoding encoding = new BinaryDataEncoding(Type.CUSTOM);
             CustomAlgorithm customAlgo = new CustomAlgorithm("relative_cuc_" + ptc + "_" + pfc);
@@ -208,7 +208,7 @@ public class MibLoaderBits {
         } else if (ptc == 11) {// deduced parameter
             return null;
         }
-        throw new MibLoadException(ctx, "Unknonw parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
+        throw new MibLoadException(ctx, "Unknown parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
     }
 
     static class PidRecord {

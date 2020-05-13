@@ -4,8 +4,7 @@ import java.util.Map;
 
 import org.yamcs.algorithms.AlgorithmExecutionContext;
 import org.yamcs.parameter.Value;
-import org.yamcs.tctm.ccsdstime.CcsdsTimeDecoder;
-import org.yamcs.tctm.ccsdstime.CucTimeDecoder;
+import org.yamcs.tctm.ccsds.time.CucTimeDecoder;
 import org.yamcs.utils.BitBuffer;
 import org.yamcs.utils.ValueUtility;
 import org.yamcs.xtce.Algorithm;
@@ -21,7 +20,7 @@ import org.yamcs.xtceproc.XtceProcessingException;
  *
  */
 public class TimeDecoder extends AbstractDataDecoder {
-    CcsdsTimeDecoder ctd;
+    CucTimeDecoder ctd;
     int ptc;
     int pfc;
     

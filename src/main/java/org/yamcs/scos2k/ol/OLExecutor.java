@@ -8,7 +8,7 @@ import org.codehaus.janino.SimpleCompiler;
 import org.yamcs.algorithms.AbstractAlgorithmExecutor;
 import org.yamcs.algorithms.AlgorithmException;
 import org.yamcs.algorithms.AlgorithmExecutionContext;
-import org.yamcs.api.EventProducer;
+import org.yamcs.events.EventProducer;
 import org.yamcs.parameter.ParameterValue;
 import org.yamcs.parameter.Value;
 import org.yamcs.protobuf.Pvalue.AcquisitionStatus;

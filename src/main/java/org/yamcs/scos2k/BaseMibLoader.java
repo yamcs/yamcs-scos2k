@@ -50,6 +50,8 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
 
     Map<Long, SequenceContainer> spidToSeqContainer = new HashMap<>();
     Map<String, DeducedParameter> deducedParameters = new HashMap<>();
+    
+    //PCF_PNAME -> MibParameter
     protected Map<String, MibParameter> parameters = new HashMap<>();
 
     int counter = 0;

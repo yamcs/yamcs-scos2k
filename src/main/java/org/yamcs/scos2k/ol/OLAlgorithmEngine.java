@@ -1,7 +1,6 @@
 package org.yamcs.scos2k.ol;
 
-import java.util.Map;
-
+import org.yamcs.YConfiguration;
 import org.yamcs.algorithms.AlgorithmEngine;
 import org.yamcs.algorithms.AlgorithmExecutorFactory;
 import org.yamcs.algorithms.AlgorithmManager;
@@ -11,8 +10,9 @@ public class OLAlgorithmEngine implements AlgorithmEngine {
     
     @Override
     public AlgorithmExecutorFactory makeExecutorFactory(AlgorithmManager algorithmManager, 
-            String language,  Map<String, Object> config) {
+            String language,  YConfiguration config) {
         return new OLExecutorFactory();
     }
+    
 
 }

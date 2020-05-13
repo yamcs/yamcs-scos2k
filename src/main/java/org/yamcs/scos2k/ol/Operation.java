@@ -34,7 +34,7 @@ public class Operation {
     final static Operation SMALLER_THAN_EQ = new Operation("<=", COMP);
     final static Operation BIGGER_THAN_EQ = new Operation(">=", COMP);
     final static Operation EQUAL = new Operation("==", COMP);
-    final static Operation DIFFER = new Operation("<>", COMP);
+    final static Operation DIFFER = new Operation("!=", COMP);
     final static Operation SHIFT_RIGHT = new Operation(">>", SHIFT_OP);
     final static Operation SHIFT_LEFT = new Operation("<<", SHIFT_OP);
     final static Operation BITW_AND = new Operation("&", SHIFT_OP);
