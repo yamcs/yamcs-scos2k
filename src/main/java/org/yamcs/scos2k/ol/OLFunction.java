@@ -38,7 +38,7 @@ public class OLFunction {
     }
     
     public static double getObTime(ParameterValue pv) {
-        return TimeEncoding.toUnixTime(pv.getGenerationTime())/1000.0;
+        return TimeEncoding.toUnixMillisec(pv.getGenerationTime())/1000.0;
     }
     
     public static int bool2int(boolean v) {

@@ -59,7 +59,7 @@ public class MibLoaderBits {
         }
 
         public String toString() {
-            if(ctx!=null) {
+            if (ctx != null) {
                 return ctx.filename + ":" + ctx.lineNum + ": " + getMessage();
             } else {
                 return getMessage();
@@ -80,7 +80,8 @@ public class MibLoaderBits {
         }
 
         private String key(MibParameter mp) {
-            return String.format("%d|%d|%s|%s|%s|%d|%s|%s", mp.ptc, mp.pfc, mp.pcfCateg, mp.pcfCurtx, mp.pcfInter, mp.vplb,
+            return String.format("%d|%d|%s|%s|%s|%d|%s|%s", mp.ptc, mp.pfc, mp.pcfCateg, mp.pcfCurtx, mp.pcfInter,
+                    mp.vplb,
                     mp.unit, mp.pcfNatur);
         }
     }
@@ -96,14 +97,14 @@ public class MibLoaderBits {
      *            size in bytes of the size tag
      * @return
      */
-    static DataEncoding getDataEncoding(MibLoaderContext ctx, int ptc, int pfc, int vplb) {
+    static DataEncoding.Builder<?> getDataEncoding(MibLoaderContext ctx, int ptc, int pfc, int vplb) {
         if (ptc == 1) {
             if (pfc == 0) {
-                return new IntegerDataEncoding(1);
+                return new IntegerDataEncoding.Builder().setSizeInBits(1);
             }
         } else if (ptc == 2) {
             if (pfc > 1 || pfc < 33) {
-                return new IntegerDataEncoding(pfc);
+                return new IntegerDataEncoding.Builder().setSizeInBits(pfc);
             }
         } else if (ptc == 3 || ptc == 4) {
 
@@ -122,7 +123,7 @@ public class MibLoaderBits {
                 throw new MibLoadException(ctx,
                         "Unknown parameter type (" + ptc + "," + pfc + ")");
             }
-            IntegerDataEncoding encoding = new IntegerDataEncoding(sizeInBits);
+            IntegerDataEncoding.Builder encoding = new IntegerDataEncoding.Builder().setSizeInBits(sizeInBits);
             if (ptc == 3) {
                 encoding.setEncoding(Encoding.UNSIGNED);
             } else {
@@ -131,13 +132,15 @@ public class MibLoaderBits {
             return encoding;
         } else if (ptc == 5) {
             if (pfc == 1) {
-                return new FloatDataEncoding(32);
+                return new FloatDataEncoding.Builder().setSizeInBits(32);
             } else if (pfc == 2) {
-                return new FloatDataEncoding(64);
+                return new FloatDataEncoding.Builder().setSizeInBits(64);
             } else if (pfc == 3) {
-                return new FloatDataEncoding(32, org.yamcs.xtce.FloatDataEncoding.Encoding.MILSTD_1750A);
+                return new FloatDataEncoding.Builder().setSizeInBits(32)
+                        .setFloatEncoding(org.yamcs.xtce.FloatDataEncoding.Encoding.MILSTD_1750A);
             } else if (pfc == 4) {
-                return new FloatDataEncoding(48, org.yamcs.xtce.FloatDataEncoding.Encoding.MILSTD_1750A);
+                return new FloatDataEncoding.Builder().setSizeInBits(48)
+                        .setFloatEncoding(org.yamcs.xtce.FloatDataEncoding.Encoding.MILSTD_1750A);
             } else {
                 throw new MibLoadException(ctx, "Unknown parameter type (" + ptc + "," + pfc + ")");
             }
@@ -145,9 +148,9 @@ public class MibLoaderBits {
             if (pfc < 1 || pfc > 64) {
                 throw new MibLoadException(ctx, "Unknown parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
             }
-            //BinaryDataEncoding encoding = new BinaryDataEncoding(Type.FIXED_SIZE);
-            //encoding.setSizeInBits(pfc);
-            IntegerDataEncoding encoding = new IntegerDataEncoding(pfc);
+            // BinaryDataEncoding encoding = new BinaryDataEncoding(Type.FIXED_SIZE);
+            // encoding.setSizeInBits(pfc);
+            IntegerDataEncoding.Builder encoding = new IntegerDataEncoding.Builder().setSizeInBits(pfc);
             encoding.setEncoding(Encoding.UNSIGNED);
             return encoding;
         } else if (ptc == 7) {
@@ -158,11 +161,11 @@ public class MibLoaderBits {
                 if (vplb < 0) {
                     throw new MibLoadException(ctx, "Invalid size of the size tag (vplb) '" + vplb + "'");
                 }
-                BinaryDataEncoding encoding = new BinaryDataEncoding(Type.LEADING_SIZE);
+                BinaryDataEncoding.Builder encoding = new BinaryDataEncoding.Builder().setType(Type.LEADING_SIZE);
                 encoding.setSizeInBitsOfSizeTag(8 * vplb);
                 return encoding;
             } else {
-                BinaryDataEncoding encoding = new BinaryDataEncoding(Type.FIXED_SIZE);
+                BinaryDataEncoding.Builder encoding = new BinaryDataEncoding.Builder().setType(Type.FIXED_SIZE);
                 encoding.setSizeInBits(pfc * 8);
                 return encoding;
             }
@@ -174,19 +177,21 @@ public class MibLoaderBits {
                 if (vplb < 0) {
                     throw new MibLoadException(ctx, "Invalid size of the size tag (vplb) '" + vplb + "'");
                 }
-                StringDataEncoding encoding = new StringDataEncoding(SizeType.LEADING_SIZE);
-                encoding.setSizeInBitsOfSizeTag(8 * vplb);
+                StringDataEncoding.Builder encoding = new StringDataEncoding.Builder()
+                        .setSizeType(SizeType.LEADING_SIZE)
+                        .setSizeInBitsOfSizeTag(8 * vplb);
                 return encoding;
             } else {
-                StringDataEncoding encoding = new StringDataEncoding(SizeType.FIXED);
-                encoding.setSizeInBits(pfc * 8);
+                StringDataEncoding.Builder encoding = new StringDataEncoding.Builder()
+                        .setSizeType(SizeType.FIXED)
+                        .setSizeInBits(pfc * 8);
                 return encoding;
             }
         } else if (ptc == 9) {
             if (pfc < 0 || (pfc > 18 && pfc != 30)) {
                 throw new MibLoadException(ctx, "Unknown parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
             }
-            BinaryDataEncoding encoding = new BinaryDataEncoding(Type.CUSTOM);
+            BinaryDataEncoding.Builder encoding = new BinaryDataEncoding.Builder().setType(Type.CUSTOM);
             CustomAlgorithm customAlgo = new CustomAlgorithm("absolute_cuc_" + ptc + "_" + pfc);
             customAlgo.setLanguage("java");
             customAlgo.setAlgorithmText("org.yamcs.scos2k.TimeDecoder({'ptc':" + ptc + ", 'pfc':" + pfc + "})");
@@ -198,12 +203,12 @@ public class MibLoaderBits {
             if (pfc < 3 || pfc > 18) {
                 throw new MibLoadException(ctx, "Unknown parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
             }
-            BinaryDataEncoding encoding = new BinaryDataEncoding(Type.CUSTOM);
+            BinaryDataEncoding.Builder encoding = new BinaryDataEncoding.Builder().setType(Type.CUSTOM);
             CustomAlgorithm customAlgo = new CustomAlgorithm("relative_cuc_" + ptc + "_" + pfc);
             customAlgo.setLanguage("java");
             customAlgo.setAlgorithmText("bububu relative cuc " + ptc + ", " + pfc);
             encoding.setFromBinaryTransformAlgorithm(customAlgo);
-            encoding.setSizeInBits(PTC9_10_SIZE_IN_BITS[pfc]);
+            encoding.setSizeInBits((int) PTC9_10_SIZE_IN_BITS[pfc]);
             return encoding;
         } else if (ptc == 11) {// deduced parameter
             return null;
@@ -295,7 +300,7 @@ public class MibLoaderBits {
         String rawfmt;
         String radix;
     }
-    
+
     static class CcaRecord {
         String engfmt;
         String rawfmt;
@@ -316,21 +321,21 @@ public class MibLoaderBits {
     }
 
     static class VpdRecord {
-      
+
         int pos;
         String name;
         int grpSize;
         int fixRep;
         String choice;
         int offset;
+
         @Override
         public String toString() {
             return "VpdRecord [pos=" + pos + ", name=" + name + ", grpSize=" + grpSize + ", fixRep=" + fixRep
                     + ", choice=" + choice + ", offset=" + offset + "]";
         }
     }
-    
-    
+
     static class CpcRecord {
         String pname;
         String descr;
@@ -345,7 +350,7 @@ public class MibLoaderBits {
         String defval;
         String corr;
     }
-    
+
     static class CdfRecord {
         String eltype;
         String descr;
@@ -358,7 +363,7 @@ public class MibLoaderBits {
         String tmid;
         int vplb = -1;
     }
-    
+
     static class TcHeaderRecord {
         String name;
         MetaCommand mc;
@@ -384,19 +389,19 @@ public class MibLoaderBits {
         Parameter ccsdsApid = new Parameter(PARA_NAME_APID);
         IntegerParameterType ccsdsApidType = getIntegerParameterType(11);
         ccsdsApid.setParameterType(ccsdsApidType);
-        ccsds.addEntry(new ParameterEntry(5, ReferenceLocationType.containerStart, ccsdsApid));
+        ccsds.addEntry(new ParameterEntry(5, ReferenceLocationType.CONTAINER_START, ccsdsApid));
         spaceSystem.addParameter(ccsdsApid);
 
         IntegerParameterType uint8 = getIntegerParameterType(8);
 
         Parameter pusPacketType = new Parameter(PARA_NAME_PUS_TYPE);
         pusPacketType.setParameterType(uint8);
-        ccsds.addEntry(new ParameterEntry(8 * typeOffset,  ReferenceLocationType.containerStart, pusPacketType));
+        ccsds.addEntry(new ParameterEntry(8 * typeOffset, ReferenceLocationType.CONTAINER_START, pusPacketType));
         spaceSystem.addParameter(pusPacketType);
 
         Parameter pusPacketSubType = new Parameter(PARA_NAME_PUS_STYPE);
         pusPacketSubType.setParameterType(uint8);
-        ccsds.addEntry(new ParameterEntry(8 * subtypeOffset, ReferenceLocationType.containerStart, pusPacketSubType));
+        ccsds.addEntry(new ParameterEntry(8 * subtypeOffset, ReferenceLocationType.CONTAINER_START, pusPacketSubType));
         spaceSystem.addParameter(pusPacketSubType);
     }
 
@@ -433,9 +438,11 @@ public class MibLoaderBits {
             throw new IllegalArgumentException("bitsize " + bitsize + " not allowed");
         }
         return integerPtype.computeIfAbsent(bitsize, k -> {
-            IntegerParameterType ptype = new IntegerParameterType("mib-uint" + bitsize);
-            ptype.setEncoding(new IntegerDataEncoding(bitsize));
-            ptype.setSigned(false);
+            IntegerParameterType ptype = new IntegerParameterType.Builder()
+                    .setName("mib-uint" + bitsize)
+                    .setEncoding(new IntegerDataEncoding.Builder().setSizeInBits(bitsize))
+                    .setSigned(false)
+                    .build();
             return ptype;
         });
     }

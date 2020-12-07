@@ -66,7 +66,7 @@ public abstract class TcMibLoader extends TmMibLoader {
     private Map<String, List<ValueEnumerationRange>> enumerationRanges = new HashMap<>();
     private Map<String, List<ValueEnumeration>> enumerations = new HashMap<>();
 
-    private Map<Integer, EnumeratedArgumentType> parameterIdArgs = new HashMap<>();
+    private Map<Integer, EnumeratedArgumentType.Builder> parameterIdArgs = new HashMap<>();
     // default size in bytes of the size tag for variable length strings and bytestrings
     private int vblParamLengthBytes = 1;
 
@@ -75,10 +75,10 @@ public abstract class TcMibLoader extends TmMibLoader {
 
     private int uncertaintyPeriod;
 
-    public TcMibLoader(Map<String, Object> config) throws ConfigurationException {
+    public TcMibLoader(YConfiguration config) throws ConfigurationException {
         super(config);
-        Map<String, Object> tcConf = YConfiguration.getMap(config, "TC");
-        vblParamLengthBytes = YConfiguration.getInt(tcConf, "vblParamLengthBytes", 1);
+        YConfiguration tcConf = config.getConfig("TC");
+        vblParamLengthBytes = tcConf.getInt("vblParamLengthBytes", 1);
     }
 
     protected void loadCommands() {
@@ -139,7 +139,7 @@ public abstract class TcMibLoader extends TmMibLoader {
             }
             String code = getString(line, IDX_PCPC_CODE, "U");
             Argument arg = new Argument(pname);
-            IntegerArgumentType iat = new IntegerArgumentType(pname);
+            IntegerArgumentType.Builder iat = new IntegerArgumentType.Builder().setName(pname);
             if ("U".equals(code)) {
                 iat.setSigned(false);
             } else if ("I".equals(code)) {
@@ -147,7 +147,7 @@ public abstract class TcMibLoader extends TmMibLoader {
             } else {
                 throw new MibLoadException(ctx, "invalid  PCPC_CODE=" + code + "");
             }
-            arg.setArgumentType(iat);
+            arg.setArgumentType(iat.build());
             arg.setShortDescription(line[IDX_PCPC_DESC]);
             headerArgs.put(pname, arg);
         }
@@ -179,7 +179,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                     binary = tmp;
                 }
                 FixedValueEntry fve = new FixedValueEntry(getString(line, IDX_PCDF_DESC, null), binary, sizeInBits);
-                fve.setLocation(ReferenceLocationType.containerStart, getInt(line, IDX_PCDF_BIT));
+                fve.setLocation(ReferenceLocationType.CONTAINER_START, getInt(line, IDX_PCDF_BIT));
                 container.addEntry(fve);
 
             } else if ("ATSK".contains(type)) {
@@ -190,8 +190,8 @@ public abstract class TcMibLoader extends TmMibLoader {
                             "Ecountered PCDF record without a corresponding pcpc record with PCPC_PNAME '"
                                     + line[IDX_PCDF_PNAME] + "'");
                 }
-                IntegerArgumentType iat = (IntegerArgumentType) arg.getArgumentType();
-                IntegerDataEncoding encoding = (IntegerDataEncoding) iat.getEncoding();
+                IntegerArgumentType.Builder iat = (IntegerArgumentType.Builder) arg.getArgumentType().toBuilder();
+                IntegerDataEncoding.Builder encoding = (IntegerDataEncoding.Builder) iat.getEncoding();
                 if (encoding != null) {
                     if (encoding.getSizeInBits() != sizeInBits) {
                         throw new MibLoadException(ctx,
@@ -199,15 +199,16 @@ public abstract class TcMibLoader extends TmMibLoader {
                                         + " different than specified before" + encoding.getSizeInBits());
                     }
                 } else {
-                    encoding = new IntegerDataEncoding(sizeInBits);
+                    encoding = new IntegerDataEncoding.Builder().setSizeInBits(sizeInBits);
                     if (iat.isSigned()) {
                         encoding.setEncoding(Encoding.TWOS_COMPLEMENT);
                     }
                     iat.setEncoding(encoding);
                 }
+                arg.setArgumentType(iat.build());
                 thr.mc.addArgument(arg);
                 ArgumentEntry ae = new ArgumentEntry(arg);
-                ae.setLocation(ReferenceLocationType.containerStart, getInt(line, IDX_PCDF_BIT));
+                ae.setLocation(ReferenceLocationType.CONTAINER_START, getInt(line, IDX_PCDF_BIT));
                 container.addEntry(ae);
 
                 switch (type) {
@@ -343,7 +344,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                 throw new MibLoadException(ctx, "parameter with CDF_ELTYPE=" + cdf.eltype + " not supported");
             }
 
-            se.setLocation(ReferenceLocationType.previousEntry, 0);
+            se.setLocation(ReferenceLocationType.PREVIOUS_ENTRY, 0);
             container.addEntry(se);
         }
     }
@@ -351,7 +352,7 @@ public abstract class TcMibLoader extends TmMibLoader {
     private Argument createArgument(CdfRecord cdf) {
         CpcRecord cpc = cdf.cpc;
         Argument arg = new Argument(cpc.pname);
-        ArgumentType argType;
+        ArgumentType.Builder<?> argType;
 
         if ("C".equals(cpc.categ)) {
             if (cpc.ccaref == null) {
@@ -371,28 +372,28 @@ public abstract class TcMibLoader extends TmMibLoader {
                     "argument '" + cpc.pname + ": CPC_CATEG=" + cpc.categ + " not supported");
         }
         if (cpc.unit != null) {
-            ((BaseDataType) argType).addUnit(new UnitType(cpc.unit));
+            ((BaseDataType.Builder<?>) argType).addUnit(new UnitType(cpc.unit));
         }
-        arg.setArgumentType(argType);
+        arg.setArgumentType(argType.build());
         return arg;
     }
 
-    private ArgumentType createArgumentTypeCcateg(CdfRecord cdf) {
+    private ArgumentType.Builder<?> createArgumentTypeCcateg(CdfRecord cdf) {
         CpcRecord cpc = cdf.cpc;
         CcaRecord cca = ccaRecords.get(cpc.ccaref);
         if (cca == null) {
             throw new MibLoadException(ctx, "Parameter '" + cpc.pname + " makes reference to CPC_CCAREF='" + cpc.ccaref
                     + "' not found in the CCA table");
         }
-        DataEncoding encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
-        ((NumericDataEncoding) encoding).setDefaultCalibrator(new SplineCalibrator(cca.splines));
+        DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
+        ((NumericDataEncoding.Builder<?>) encoding).setDefaultCalibrator(new SplineCalibrator(cca.splines));
 
         if ("R".equals(cca.engfmt)) {
-            FloatArgumentType argType = new FloatArgumentType(cpc.pname);
+            FloatArgumentType.Builder argType = new FloatArgumentType.Builder().setName(cpc.pname);
             argType.setEncoding(encoding);
             return argType;
         } else if ("I".equals(cca.engfmt)) {
-            IntegerArgumentType argType = new IntegerArgumentType(cpc.pname);
+            IntegerArgumentType.Builder argType = new IntegerArgumentType.Builder().setName(cpc.pname);
             argType.setEncoding(encoding);
             return argType;
         } else {
@@ -401,16 +402,16 @@ public abstract class TcMibLoader extends TmMibLoader {
         }
     }
 
-    private ArgumentType createParameterIdArgumentType(CdfRecord cdf) {
+    private ArgumentType.Builder<?> createParameterIdArgumentType(CdfRecord cdf) {
         CpcRecord cpc = cdf.cpc;
         if (cpc.ptc != 3) {
             throw new MibLoadException(ctx,
                     "Parameter '" + cpc.pname + " of categ 'P' should have CPC_PTC=4 instead of " + cpc.ptc);
         }
-        EnumeratedArgumentType type = parameterIdArgs.get(cpc.pfc);
+        EnumeratedArgumentType.Builder type = parameterIdArgs.get(cpc.pfc);
         if (type == null) {
-            DataEncoding encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
-            type = new EnumeratedArgumentType("parameter_id_" + cpc.pfc);
+            DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
+            type = new EnumeratedArgumentType.Builder().setName("parameter_id_" + cpc.pfc);
             for (MibParameter mp : parameters.values()) {
                 if (mp.pid != -1) {
                     type.addEnumerationValue(new ValueEnumeration(mp.pid, mp.name));
@@ -422,44 +423,45 @@ public abstract class TcMibLoader extends TmMibLoader {
         return type;
     }
 
-    private ArgumentType createArgumentTypeAcateg(CdfRecord cdf) {
+    private ArgumentType.Builder<?> createArgumentTypeAcateg(CdfRecord cdf) {
         CpcRecord cpc = cdf.cpc;
-        BinaryArgumentType bat = new BinaryArgumentType(cpc.pname);
-        bat.setEncoding(getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb));
+        BinaryArgumentType.Builder bat = new BinaryArgumentType.Builder()
+                .setName(cpc.pname)
+                .setEncoding(getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb));
 
         return bat;
     }
 
-    private ArgumentType createArgumentTypeNcateg(CdfRecord cdf) {
+    private ArgumentType.Builder<?> createArgumentTypeNcateg(CdfRecord cdf) {
         CpcRecord cpc = cdf.cpc;
-        DataEncoding encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
-        return (ArgumentType) getDataType(encoding, "arg_" + cpc.pname, false);
+        DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
+        return (ArgumentType.Builder<?>) getDataType(encoding, "arg_" + cpc.pname, false);
     }
 
-    private ArgumentType createArgumentTypeTcateg(CdfRecord cdf) {
+    private ArgumentType.Builder<?> createArgumentTypeTcateg(CdfRecord cdf) {
         CpcRecord cpc = cdf.cpc;
         if (cpc.pafref == null) {
             throw new MibLoadException(ctx, cpc.pname + ": CPC_PAFREF cannot be null for CPC_CATEF=" + cpc.categ);
         }
-        DataEncoding encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
-        EnumeratedArgumentType argType;
-        if (encoding instanceof IntegerDataEncoding) {
+        DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
+        EnumeratedArgumentType.Builder argType;
+        if (encoding instanceof IntegerDataEncoding.Builder) {
             List<ValueEnumeration> l = enumerations.get(cpc.pafref);
             if (l == null) {
                 throw new MibLoadException(ctx, cpc.pname + ": could not find PAF/PAS records for CPC_PAFREF="
                         + cpc.pafref + " and type integer/unsigned");
             }
-            argType = new EnumeratedArgumentType(cpc.pname);
+            argType = new EnumeratedArgumentType.Builder().setName(cpc.pname);
             for (ValueEnumeration ve : l) {
                 argType.addEnumerationValue(ve);
             }
-        } else if (encoding instanceof FloatDataEncoding) {
+        } else if (encoding instanceof FloatDataEncoding.Builder) {
             List<ValueEnumerationRange> l = enumerationRanges.get(cpc.pafref);
             if (l == null) {
                 throw new MibLoadException(ctx,
                         cpc.pname + ": could not find PAF/PAS records for CPC_PAFREF=" + cpc.pafref + " and type real");
             }
-            argType = new EnumeratedArgumentType(cpc.pname);
+            argType = new EnumeratedArgumentType.Builder().setName(cpc.pname);
             for (ValueEnumerationRange ver : l) {
                 argType.addEnumerationRange(ver);
             }

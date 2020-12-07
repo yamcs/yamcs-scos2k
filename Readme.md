@@ -9,7 +9,7 @@ scos-mib:
   - type: "org.yamcs.scos2k.MibLoader"
     args: 
         path: "/path/to/ASCII/"        
-        epoch: "UNIX"
+        epoch: "1970-01-01T00:00:00"
         #TC specific settings
         TC:   
            # default size in bytes of the size tag for variable length strings and bytestrings

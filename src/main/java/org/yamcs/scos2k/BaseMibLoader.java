@@ -50,24 +50,23 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
 
     Map<Long, SequenceContainer> spidToSeqContainer = new HashMap<>();
     Map<String, DeducedParameter> deducedParameters = new HashMap<>();
-    
-    //PCF_PNAME -> MibParameter
+
+    // PCF_PNAME -> MibParameter
     protected Map<String, MibParameter> parameters = new HashMap<>();
 
     int counter = 0;
     SpaceSystem spaceSystem;
-  
+
     // epoch for the time parameters
     TimeEpoch timeEpoch;
 
- 
     String ssName;
 
-    public BaseMibLoader(Map<String, Object> config) throws ConfigurationException {
-        super(YConfiguration.getString(config, "path"));
+    public BaseMibLoader(YConfiguration config) throws ConfigurationException {
+        super(config.getString("path"));
 
-        ssName = YConfiguration.getString(config, "spaceSystemName", "MIB");
-        String epoch = YConfiguration.getString(config, "epoch", "UNIX");
+        ssName = config.getString("spaceSystemName", "MIB");
+        String epoch = config.getString("epoch", "1970-01-01T00:00:00");
         try {
             CommonEpochs ce = CommonEpochs.valueOf(epoch.toUpperCase());
             timeEpoch = new TimeEpoch(ce);
@@ -164,7 +163,7 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
     protected void checkMandatory(String[] line, int... notnull) {
         for (int k : notnull) {
             if (line.length <= k || line[k] == null) {
-                throw new MibLoadException(ctx, "Missing column " + (k+1));
+                throw new MibLoadException(ctx, "Missing column " + (k + 1));
             }
         }
     }
@@ -197,38 +196,42 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
         }
     }
 
-    //make the natural datatype for this encoding knowing there is no calibration 
-    BaseDataType getDataType(DataEncoding encoding, String name, boolean para) {
-        if (encoding instanceof IntegerDataEncoding) {
-            IntegerDataType dtype;
-            dtype = para ? new IntegerParameterType(name) : new IntegerArgumentType(name);
-            dtype.setSigned(((IntegerDataEncoding) encoding).getEncoding() != Encoding.UNSIGNED);
-            dtype.setSizeInBits(encoding.getSizeInBits()>32?64:32);
+    // make the natural datatype for this encoding knowing there is no calibration
+    BaseDataType.Builder<?> getDataType(DataEncoding.Builder<?> encoding, String name, boolean para) {
+        if (encoding instanceof IntegerDataEncoding.Builder) {
+            IntegerDataType.Builder<?> dtype;
+            dtype = para ? new IntegerParameterType.Builder() : new IntegerArgumentType.Builder();
+            dtype.setName(name);
+            dtype.setSigned(((IntegerDataEncoding.Builder) encoding).getEncoding() != Encoding.UNSIGNED);
+            dtype.setSizeInBits(encoding.getSizeInBits() > 32 ? 64 : 32);
             dtype.setEncoding(encoding);
             return dtype;
-        } else if (encoding instanceof FloatDataEncoding) {
-            FloatDataType dtype = para ? new FloatParameterType(name) : new FloatArgumentType(name);
-            FloatDataEncoding fde = (FloatDataEncoding) encoding;
-            if(fde.getEncoding()==org.yamcs.xtce.FloatDataEncoding.Encoding.IEEE754_1985) {
-                dtype.setSizeInBits(fde.getSizeInBits());    
-            } else if(fde.getEncoding()==org.yamcs.xtce.FloatDataEncoding.Encoding.MILSTD_1750A) {
-                dtype.setSizeInBits(64);  
+        } else if (encoding instanceof FloatDataEncoding.Builder) {
+            FloatDataType.Builder<?> dtype = para ? new FloatParameterType.Builder().setName(name)
+                    : new FloatArgumentType.Builder().setName(name);
+            FloatDataEncoding.Builder fde = (FloatDataEncoding.Builder) encoding;
+            if (fde.getFloatEncoding() == org.yamcs.xtce.FloatDataEncoding.Encoding.IEEE754_1985) {
+                dtype.setSizeInBits(fde.getSizeInBits());
+            } else if (fde.getFloatEncoding() == org.yamcs.xtce.FloatDataEncoding.Encoding.MILSTD_1750A) {
+                dtype.setSizeInBits(64);
             }
             dtype.setEncoding(encoding);
             return dtype;
-        } else if (encoding instanceof BinaryDataEncoding) {
-            BinaryDataType dtype = para ? new BinaryParameterType(name) :  new BinaryArgumentType(name);
+        } else if (encoding instanceof BinaryDataEncoding.Builder) {
+            BinaryDataType.Builder<?> dtype = para ? new BinaryParameterType.Builder().setName(name)
+                    : new BinaryArgumentType.Builder().setName(name);
             dtype.setEncoding(encoding);
             return dtype;
-        } else if (encoding instanceof StringDataEncoding) {
-            StringDataType dtype = para ? new StringParameterType(name) :  new StringArgumentType(name);
+        } else if (encoding instanceof StringDataEncoding.Builder) {
+            StringDataType.Builder<?> dtype = para ? new StringParameterType.Builder().setName(name)
+                    : new StringArgumentType.Builder().setName(name);
             dtype.setEncoding(encoding);
             return dtype;
         } else {
-            throw new IllegalStateException(" encoding: "+encoding);
+            throw new IllegalStateException(" encoding: " + encoding);
         }
     }
-    
+
     protected double getDouble(String val, String fmt, String radix) {
         if ("U".equals(fmt)) {
             int r = 10;
@@ -242,6 +245,7 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
             return Double.parseDouble(val);
         }
     }
+
     protected boolean getUseCalibrated(String colName, String v) {
         if ("E".equals(v)) {
             return true;
@@ -252,6 +256,4 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
         }
     }
 
-    
-    
 }

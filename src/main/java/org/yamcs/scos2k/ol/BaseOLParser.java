@@ -113,8 +113,11 @@ public abstract class BaseOLParser {
    
 
     protected String getReturnCode(ExpressionCode ec) {
-        ParameterType otype = parameterTypes.apply(name);
-        DataEncoding encoding = ((BaseDataType)otype).getEncoding();
+        ParameterType outType = parameterTypes.apply(name);
+        if(outType == null) {
+            return ec.code;
+        }
+        DataEncoding encoding = ((BaseDataType)outType).getEncoding();
         
         if ((encoding instanceof NumericDataEncoding) && ec.type == Type.BOOLEAN) {
             return "OLFunction.bool2int("+ec.code+")";
@@ -181,7 +184,6 @@ public abstract class BaseOLParser {
                 }
             } else if ("raw".equals(paraProp)) {
                 DataEncoding encoding = ((BaseDataType)ptype).getEncoding();
-                System.out.println("pname: " + paraName+" encoding: "+encoding);
                 String t = DataEncodingDecoder.getRawType(encoding).name();
                 String v = paraName + ".getRawValue().get" + t.substring(0, 1) + t.substring(1).toLowerCase()
                         + "Value()";
@@ -257,7 +259,4 @@ public abstract class BaseOLParser {
             return name + ":" + type;
         }
     }
-    
-    
-    
 }
