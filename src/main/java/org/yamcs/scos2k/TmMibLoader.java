@@ -30,7 +30,7 @@ import org.yamcs.scos2k.MibLoaderBits.VpdRecord;
 import org.yamcs.scos2k.ol.OLAlgorithmEngine;
 import org.yamcs.scos2k.ol.OLParser;
 import org.yamcs.scos2k.ol.ParseException;
-import org.yamcs.utils.DoubleRange;
+import org.yamcs.xtce.util.DoubleRange;
 import org.yamcs.xtce.AbsoluteTimeParameterType;
 import org.yamcs.xtce.AlarmLevels;
 import org.yamcs.xtce.BaseDataType;
