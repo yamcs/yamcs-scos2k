@@ -47,11 +47,21 @@ public class MibLoaderBits {
             this.filename = filename;
             this.lineNum = lineNum;
         }
+
+        public MibLoaderContext clone() {
+            return new MibLoaderContext(filename, lineNum);
+        }
+
     }
 
     static class MibLoadException extends DatabaseLoadException {
         private static final long serialVersionUID = 1L;
-        MibLoaderContext ctx;
+        final MibLoaderContext ctx;
+
+        public MibLoadException(String msg) {
+            super(msg);
+            this.ctx = null;
+        }
 
         public MibLoadException(MibLoaderContext ctx, String msg) {
             super(msg);

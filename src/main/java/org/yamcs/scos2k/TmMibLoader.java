@@ -399,7 +399,15 @@ public abstract class TmMibLoader extends BaseMibLoader {
             log.debug("Parsing and compiling {}", f);
             String olCode = new String(Files.readAllBytes(f.toPath()), StandardCharsets.ISO_8859_1);
             OLParser parser = new OLParser(new StringReader(olCode));
-            code = parser.generateCodeStandalone(mp.name, name -> parameters.get(name).ptype);
+            System.out.println("mp.name: " + mp.name);
+            code = parser.generateCodeStandalone(mp.name, name -> {
+                MibParameter mibp = parameters.get(name);
+                if (mibp == null) {
+                    throw new MibLoadException(
+                            "Syntentic parameter " + mp.name + " refers to unexisting parameter " + name);
+                }
+                return parameters.get(name).ptype;
+            });
             SimpleCompiler compiler = new SimpleCompiler();
             compiler.cook(code);
             CustomAlgorithm algo = new CustomAlgorithm(mp.name);
