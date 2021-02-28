@@ -399,7 +399,6 @@ public abstract class TmMibLoader extends BaseMibLoader {
             log.debug("Parsing and compiling {}", f);
             String olCode = new String(Files.readAllBytes(f.toPath()), StandardCharsets.ISO_8859_1);
             OLParser parser = new OLParser(new StringReader(olCode));
-            System.out.println("mp.name: " + mp.name);
             code = parser.generateCodeStandalone(mp.name, name -> {
                 MibParameter mibp = parameters.get(name);
                 if (mibp == null) {
