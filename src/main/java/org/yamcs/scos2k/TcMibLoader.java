@@ -30,7 +30,7 @@ import org.yamcs.xtce.CommandVerifier.Type;
 import org.yamcs.xtce.Comparison;
 import org.yamcs.xtce.ComparisonList;
 import org.yamcs.xtce.DataEncoding;
-import org.yamcs.xtce.DatabaseLoadException;
+import org.yamcs.mdb.DatabaseLoadException;
 import org.yamcs.xtce.EnumeratedArgumentType;
 import org.yamcs.xtce.FixedValueEntry;
 import org.yamcs.xtce.FloatArgumentType;
@@ -59,8 +59,8 @@ import org.yamcs.xtce.ValueEnumerationRange;
 
 public abstract class TcMibLoader extends TmMibLoader {
     Map<String, CpcRecord> cpcRecords = new HashMap<>();
-    Significance SIGNIF_CRITICAL = new Significance(Levels.critical, null);
-    Significance SIGNIF_NONE = new Significance(Levels.none, null);
+    Significance SIGNIF_CRITICAL = new Significance(Levels.CRITICAL, null);
+    Significance SIGNIF_NONE = new Significance(Levels.NONE, null);
     Map<String, List<CdfRecord>> cdfRecords = new HashMap<>();
     Map<String, CcaRecord> ccaRecords = new HashMap<>();
     private Map<String, List<ValueEnumerationRange>> enumerationRanges = new HashMap<>();
@@ -147,6 +147,7 @@ public abstract class TcMibLoader extends TmMibLoader {
             } else {
                 throw new MibLoadException(ctx, "invalid  PCPC_CODE=" + code + "");
             }
+
             arg.setArgumentType(iat.build());
             arg.setShortDescription(line[IDX_PCPC_DESC]);
             headerArgs.put(pname, arg);
@@ -803,10 +804,10 @@ public abstract class TcMibLoader extends TmMibLoader {
                 if (tolerance != 0) {
                     double val = getDouble(line, IDX_CVE_VAL);
                     ComparisonList cl = new ComparisonList();
-                    cl.addComparison(new Comparison(new ParameterInstanceRef(param, useCalibrated), val - tolerance,
-                            OperatorType.LARGEROREQUALTHAN));
-                    cl.addComparison(new Comparison(new ParameterInstanceRef(param, useCalibrated), val + tolerance,
-                            OperatorType.SMALLEROREQUALTHAN));
+                    cl.addComparison(new Comparison(new ParameterInstanceRef(param, useCalibrated),
+                            Double.toString(val - tolerance), OperatorType.LARGEROREQUALTHAN));
+                    cl.addComparison(new Comparison(new ParameterInstanceRef(param, useCalibrated),
+                            Double.toString(val + tolerance), OperatorType.SMALLEROREQUALTHAN));
                     matchCrit = cl;
                 }
             }
@@ -843,7 +844,7 @@ public abstract class TcMibLoader extends TmMibLoader {
             int uncertainty = getInt(line, IDX_CVS_UNCERTAINTY, uncertaintyPeriod);
             String type = line[IDX_CVS_TYPE];
             CheckWindow checkWindow = new CheckWindow(start * 1000, (start + uncertainty) * 1000,
-                    TimeWindowIsRelativeToType.CommandRelease);
+                    TimeWindowIsRelativeToType.COMMAND_RELEASE);
 
             // TODO : when adding verifiers of type ComparisonList and Comparison we can complete the implementation
             // here

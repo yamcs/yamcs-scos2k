@@ -11,7 +11,7 @@ import org.yamcs.xtce.Comparison;
 import org.yamcs.xtce.ComparisonList;
 import org.yamcs.xtce.CustomAlgorithm;
 import org.yamcs.xtce.DataEncoding;
-import org.yamcs.xtce.DatabaseLoadException;
+import org.yamcs.mdb.DatabaseLoadException;
 import org.yamcs.xtce.FloatDataEncoding;
 import org.yamcs.xtce.IntegerDataEncoding;
 import org.yamcs.xtce.IntegerParameterType;
@@ -114,7 +114,7 @@ public class MibLoaderBits {
             }
         } else if (ptc == 2) {
             if (pfc > 1 || pfc < 33) {
-                return new IntegerDataEncoding.Builder().setSizeInBits(pfc);
+                return new IntegerDataEncoding.Builder().setSizeInBits(pfc).setEncoding(Encoding.UNSIGNED);
             }
         } else if (ptc == 3 || ptc == 4) {
 
@@ -142,9 +142,11 @@ public class MibLoaderBits {
             return encoding;
         } else if (ptc == 5) {
             if (pfc == 1) {
-                return new FloatDataEncoding.Builder().setSizeInBits(32);
+                return new FloatDataEncoding.Builder().setSizeInBits(32)
+                        .setFloatEncoding(org.yamcs.xtce.FloatDataEncoding.Encoding.IEEE754_1985);
             } else if (pfc == 2) {
-                return new FloatDataEncoding.Builder().setSizeInBits(64);
+                return new FloatDataEncoding.Builder().setSizeInBits(64)
+                        .setFloatEncoding(org.yamcs.xtce.FloatDataEncoding.Encoding.IEEE754_1985);
             } else if (pfc == 3) {
                 return new FloatDataEncoding.Builder().setSizeInBits(32)
                         .setFloatEncoding(org.yamcs.xtce.FloatDataEncoding.Encoding.MILSTD_1750A);
@@ -395,7 +397,7 @@ public class MibLoaderBits {
     static void createRootPusContainers(SpaceSystem spaceSystem, int typeOffset, int subtypeOffset) {
         SequenceContainer ccsds = new SequenceContainer(CONTAINER_NAME_ROOT);
         spaceSystem.addSequenceContainer(ccsds);
-        spaceSystem.setRootSequenceContainer(ccsds);
+        // spaceSystem.setRootSequenceContainer(ccsds);
         Parameter ccsdsApid = new Parameter(PARA_NAME_APID);
         IntegerParameterType ccsdsApidType = getIntegerParameterType(11);
         ccsdsApid.setParameterType(ccsdsApidType);
@@ -425,11 +427,14 @@ public class MibLoaderBits {
         container.setBaseContainer(ccsds);
         ComparisonList cl = new ComparisonList();
         cl.addComparison(
-                new Comparison(new ParameterInstanceRef(ccsdsApid, false), apid, OperatorType.EQUALITY));
+                new Comparison(new ParameterInstanceRef(ccsdsApid, false), Integer.toString(apid),
+                        OperatorType.EQUALITY));
         cl.addComparison(
-                new Comparison(new ParameterInstanceRef(pusPacketType, false), type, OperatorType.EQUALITY));
+                new Comparison(new ParameterInstanceRef(pusPacketType, false), Integer.toString(type),
+                        OperatorType.EQUALITY));
         cl.addComparison(
-                new Comparison(new ParameterInstanceRef(pusPacketSubType, false), stype, OperatorType.EQUALITY));
+                new Comparison(new ParameterInstanceRef(pusPacketSubType, false), Integer.toString(stype),
+                        OperatorType.EQUALITY));
         container.setRestrictionCriteria(cl);
         spaceSystem.addSequenceContainer(container);
         return container;

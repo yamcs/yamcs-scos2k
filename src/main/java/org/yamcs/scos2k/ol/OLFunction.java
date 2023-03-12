@@ -3,7 +3,7 @@ package org.yamcs.scos2k.ol;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.yamcs.parameter.ParameterValue;
+import org.yamcs.parameter.RawEngValue;
 import org.yamcs.utils.TimeEncoding;
 
 public class OLFunction {
@@ -33,11 +33,11 @@ public class OLFunction {
         return Math.atan(1 / x);
     }
     
-    public static boolean synth(ParameterValue...pv) {
+    public static boolean synth(RawEngValue... pv) {
         return false;
     }
     
-    public static double getObTime(ParameterValue pv) {
+    public static double getObTime(RawEngValue pv) {
         return TimeEncoding.toUnixMillisec(pv.getGenerationTime())/1000.0;
     }
     

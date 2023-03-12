@@ -8,18 +8,21 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
+import org.yamcs.xtce.AbsoluteTimeParameterType;
 import org.yamcs.xtce.BaseDataType;
+import org.yamcs.xtce.BinaryParameterType;
 import org.yamcs.xtce.BooleanDataEncoding;
 import org.yamcs.xtce.BooleanParameterType;
 import org.yamcs.xtce.DataEncoding;
+import org.yamcs.xtce.EnumeratedParameterType;
 import org.yamcs.xtce.FloatDataEncoding;
 import org.yamcs.xtce.FloatParameterType;
 import org.yamcs.xtce.IntegerDataEncoding;
 import org.yamcs.xtce.IntegerParameterType;
 import org.yamcs.xtce.NumericDataEncoding;
 import org.yamcs.xtce.ParameterType;
-import org.yamcs.xtceproc.DataEncodingDecoder;
-import org.yamcs.xtceproc.ParameterTypeUtils;
+import org.yamcs.xtce.StringParameterType;
+import org.yamcs.mdb.DataEncodingDecoder;
 
 /**
  * Transforms OL Formulas into java classes.
@@ -37,7 +40,7 @@ public abstract class BaseOLParser {
 
     private Function<String, ParameterType> parameterTypes;
     private String name;
-    
+
     /**
      * Generates the import statement required before the class definition
      * 
@@ -47,10 +50,12 @@ public abstract class BaseOLParser {
         code.append("package org.yamcs.scos2k.ol.generated;\n");
         code.append("import java.util.List;\n");
         code.append("import org.yamcs.parameter.ParameterValue;\n");
+        code.append("import org.yamcs.parameter.RawEngValue;\n");
         code.append("import org.yamcs.scos2k.ol.OLEvaluator;\n");
         code.append("import org.yamcs.scos2k.ol.OLFunction;\n");
         code.append("import org.yamcs.scos2k.ol.GlobalVariables;\n");
     }
+
     /**
      * Generate code that can be used in a java compilation unit
      * 
@@ -67,7 +72,7 @@ public abstract class BaseOLParser {
             throws ParseException {
         StringBuilder code = new StringBuilder();
         generateCodeImports(code);
-        
+
         generateCode(name, code, inputParameterTypes);
 
         return code.toString();
@@ -83,7 +88,8 @@ public abstract class BaseOLParser {
      * @param sb
      * @throws ParseException
      */
-    public void generateCode(String name, StringBuilder sb, Function<String, ParameterType> inputParameterTypes) throws ParseException {
+    public void generateCode(String name, StringBuilder sb, Function<String, ParameterType> inputParameterTypes)
+            throws ParseException {
         this.parameterTypes = inputParameterTypes;
         this.name = name;
         StringBuilder body = new StringBuilder();
@@ -91,18 +97,22 @@ public abstract class BaseOLParser {
 
         sb.append("\n");
         sb.append("public class ").append(name).append(" implements OLEvaluator {\n");
-        
+
         sb.append("\n");
-        // sb.append("    public Object evaluate(List<ParameterValue> inputList) {\n"); // janino doesn't support templates
+
+        // janino doesn't support generics
+        // sb.append(" public Object evaluate(GlobalVariables globalVariables, List<RawEngValue> inputList) {\n");
         sb.append("    public Object evaluate(GlobalVariables globalVariables, List inputList) {\n");
-        if("DERIVED".equals(name)) {
+        if ("DERIVED".equals(name)) {
             sb.append("    System.out.println(inputList);\n");
         }
-        for (int i =0; i<inputParams.size(); i++) {
+        for (int i = 0; i < inputParams.size(); i++) {
             String paraName = inputParams.get(i);
-            sb.append("        ParameterValue ").append(paraName).append(" = (ParameterValue) inputList.get("+i+");\n");
+            sb.append("        RawEngValue ")
+                    .append(paraName)
+                    .append(" = (RawEngValue) inputList.get(" + i + ");\n");
         }
-        
+
         for (Variable v : localVariables.values()) {
             sb.append("        ").append(v.type.javaType()).append(" ").append(v.name).append(";\n");
         }
@@ -110,23 +120,22 @@ public abstract class BaseOLParser {
         sb.append("    }\n}");
     }
 
-   
-
     protected String getReturnCode(ExpressionCode ec) {
         ParameterType outType = parameterTypes.apply(name);
-        if(outType == null) {
+        if (outType == null) {
             return ec.code;
         }
-        DataEncoding encoding = ((BaseDataType)outType).getEncoding();
-        
+        DataEncoding encoding = ((BaseDataType) outType).getEncoding();
+
         if ((encoding instanceof NumericDataEncoding) && ec.type == Type.BOOLEAN) {
-            return "OLFunction.bool2int("+ec.code+")";
-        } else if((encoding instanceof IntegerDataEncoding) && (ec.type == Type.DOUBLE)) {
-            return "(long) ("+ec.code+")";
+            return "OLFunction.bool2int(" + ec.code + ")";
+        } else if ((encoding instanceof IntegerDataEncoding) && (ec.type == Type.DOUBLE)) {
+            return "(long) (" + ec.code + ")";
         } else {
             return ec.code;
         }
     }
+
     protected void addVariable(String name, Type type) throws ParseException {
         Variable v = localVariables.get(name);
         if (v == null) {
@@ -170,7 +179,7 @@ public abstract class BaseOLParser {
             }
             addInputParam(paraName);
             if ("eng".equals(paraProp)) {
-                String t = ParameterTypeUtils.getEngType(ptype).name();
+                String t = getEngType(ptype).name();
                 String v = paraName + ".getEngValue().get" + t.substring(0, 1) + t.substring(1).toLowerCase()
                         + "Value()";
                 if (ptype instanceof IntegerParameterType) {
@@ -183,7 +192,7 @@ public abstract class BaseOLParser {
                     throw new ParseException("Unsupported parameter of type " + ptype);
                 }
             } else if ("raw".equals(paraProp)) {
-                DataEncoding encoding = ((BaseDataType)ptype).getEncoding();
+                DataEncoding encoding = ((BaseDataType) ptype).getEncoding();
                 String t = DataEncodingDecoder.getRawType(encoding).name();
                 String v = paraName + ".getRawValue().get" + t.substring(0, 1) + t.substring(1).toLowerCase()
                         + "Value()";
@@ -197,7 +206,7 @@ public abstract class BaseOLParser {
                     throw new ParseException("Unsupported parameter of type " + ptype);
                 }
             } else if ("time".equals(paraProp)) {
-                return new ExpressionCode(Type.DOUBLE, "OLFunction.getObTime("+paraName + ")");
+                return new ExpressionCode(Type.DOUBLE, "OLFunction.getObTime(" + paraName + ")");
             } else {
                 throw new ParseException("Unknown property '" + paraProp + "' for parameter '" + paraName + "'");
             }
@@ -215,7 +224,7 @@ public abstract class BaseOLParser {
     protected ExpressionCode getSynthExpression(List<String> paraList) {
         boolean first = true;
         StringBuilder sb = new StringBuilder();
-        sb.append("OLFunction.synth( new ParameterValue[] {");
+        sb.append("OLFunction.synth( new RawEngValue[] {");
         for (String paraName : paraList) {
             addInputParam(paraName);
             if (first) {
@@ -237,15 +246,52 @@ public abstract class BaseOLParser {
 
     protected abstract void parse(StringBuilder body) throws ParseException;
 
-    
     public boolean isNoTrigger(String pname) {
         return noTriggerParams.contains(pname);
     }
 
-    
     public List<String> getInputParameters() {
         return inputParams;
     }
+
+    public static org.yamcs.protobuf.Yamcs.Value.Type getEngType(ParameterType ptype) {
+        if (ptype instanceof IntegerParameterType) {
+            IntegerParameterType ipt = (IntegerParameterType) ptype;
+            if (ipt.getSizeInBits() <= 32) {
+                if (ipt.isSigned()) {
+                    return org.yamcs.protobuf.Yamcs.Value.Type.SINT32;
+                } else {
+                    return org.yamcs.protobuf.Yamcs.Value.Type.UINT32;
+                }
+            } else {
+                if (ipt.isSigned()) {
+                    return org.yamcs.protobuf.Yamcs.Value.Type.SINT64;
+                } else {
+                    return org.yamcs.protobuf.Yamcs.Value.Type.UINT64;
+                }
+            }
+        } else if (ptype instanceof FloatParameterType) {
+            FloatParameterType fpt = (FloatParameterType) ptype;
+            if (fpt.getSizeInBits() <= 32) {
+                return org.yamcs.protobuf.Yamcs.Value.Type.FLOAT;
+            } else {
+                return org.yamcs.protobuf.Yamcs.Value.Type.DOUBLE;
+            }
+        } else if (ptype instanceof BooleanParameterType) {
+            return org.yamcs.protobuf.Yamcs.Value.Type.BOOLEAN;
+        } else if (ptype instanceof BinaryParameterType) {
+            return org.yamcs.protobuf.Yamcs.Value.Type.BINARY;
+        } else if (ptype instanceof StringParameterType) {
+            return org.yamcs.protobuf.Yamcs.Value.Type.STRING;
+        } else if (ptype instanceof EnumeratedParameterType) {
+            return org.yamcs.protobuf.Yamcs.Value.Type.STRING;
+        } else if (ptype instanceof AbsoluteTimeParameterType) {
+            return org.yamcs.protobuf.Yamcs.Value.Type.TIMESTAMP;
+        } else {
+            throw new IllegalStateException("Unknonw parameter type '" + ptype + "'");
+        }
+    }
+
     static class Variable {
         String name;
         Type type;

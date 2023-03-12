@@ -9,8 +9,8 @@ import org.yamcs.utils.BitBuffer;
 import org.yamcs.utils.ValueUtility;
 import org.yamcs.xtce.Algorithm;
 import org.yamcs.xtce.DataEncoding;
-import org.yamcs.xtceproc.AbstractDataDecoder;
-import org.yamcs.xtceproc.XtceProcessingException;
+import org.yamcs.mdb.AbstractDataDecoder;
+import org.yamcs.mdb.XtceProcessingException;
 
 /**
  * Decodes absolute times in CUC (CCSDS Unsegmented Code)

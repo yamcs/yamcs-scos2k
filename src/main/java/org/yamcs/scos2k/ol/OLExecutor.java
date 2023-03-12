@@ -8,6 +8,7 @@ import org.codehaus.janino.SimpleCompiler;
 import org.yamcs.algorithms.AbstractAlgorithmExecutor;
 import org.yamcs.algorithms.AlgorithmException;
 import org.yamcs.algorithms.AlgorithmExecutionContext;
+import org.yamcs.algorithms.AlgorithmExecutionResult;
 import org.yamcs.events.EventProducer;
 import org.yamcs.parameter.ParameterValue;
 import org.yamcs.parameter.Value;
@@ -18,9 +19,10 @@ import org.yamcs.xtce.CustomAlgorithm;
 import org.yamcs.xtce.DataEncoding;
 import org.yamcs.xtce.OutputParameter;
 import org.yamcs.xtce.XtceDb;
-import org.yamcs.xtceproc.DataEncodingDecoder;
-import org.yamcs.xtceproc.ParameterTypeProcessor;
-import org.yamcs.xtceproc.ProcessorData;
+import org.yamcs.mdb.DataEncodingDecoder;
+import org.yamcs.mdb.ParameterTypeProcessor;
+import org.yamcs.mdb.ProcessingData;
+import org.yamcs.mdb.ProcessorData;
 
 public class OLExecutor extends AbstractAlgorithmExecutor {
     private static final String OL_GV_KEY = "SCOS2K_OL_GLOBAL_VARS";
@@ -82,7 +84,7 @@ public class OLExecutor extends AbstractAlgorithmExecutor {
     }
 
     @Override
-    public List<ParameterValue> runAlgorithm(long acqTime, long genTime) {
+    public AlgorithmExecutionResult execute(long acqTime, long genTime, ProcessingData data) {
         ParameterValue out = new ParameterValue(outputParameter.getParameter());
         Object value = olEvaluator.evaluate(globalVars, inputValues);
         BaseDataType bdt = (BaseDataType)outputParameter.getParameter().getParameterType();
@@ -97,6 +99,6 @@ public class OLExecutor extends AbstractAlgorithmExecutor {
             out.setRawValue(rawValue);
             parameterTypeProcessor.calibrate(out);
         }
-        return Arrays.asList(out);
+        return new AlgorithmExecutionResult(out);
     }
 }

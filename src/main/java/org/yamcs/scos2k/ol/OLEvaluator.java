@@ -2,7 +2,7 @@ package org.yamcs.scos2k.ol;
 
 import java.util.List;
 
-import org.yamcs.parameter.ParameterValue;
+import org.yamcs.parameter.RawEngValue;
 
 /**
  * Interface implemented by the automatically generated code in {@link BaseOLParser}
@@ -12,11 +12,11 @@ import org.yamcs.parameter.ParameterValue;
  */
 public interface OLEvaluator {
     /**
-     * Evaluates the expression with the given inputs and return the 
-     * raw value 
+     * Evaluates the expression with the given inputs and return the
+     * raw value
      * 
-     * @param inputList
+     * @param inputValues
      * @return
      */
-    Object evaluate(GlobalVariables globalVariables, List<ParameterValue> inputList);
+    Object evaluate(GlobalVariables globalVariables, List<RawEngValue> inputValues);
 }

@@ -43,7 +43,7 @@ import org.yamcs.xtce.ContainerEntry;
 import org.yamcs.xtce.ContextCalibrator;
 import org.yamcs.xtce.CustomAlgorithm;
 import org.yamcs.xtce.DataEncoding;
-import org.yamcs.xtce.DatabaseLoadException;
+import org.yamcs.mdb.DatabaseLoadException;
 import org.yamcs.xtce.DynamicIntegerValue;
 import org.yamcs.xtce.EnumeratedParameterType;
 import org.yamcs.xtce.FixedIntegerValue;
@@ -95,18 +95,18 @@ public abstract class TmMibLoader extends BaseMibLoader {
     // where to extract the type and subType from the packet - in bytes
     int typeOffset = 0;
     int subTypeOffset = 0;
-    
+
     public TmMibLoader(YConfiguration config) throws ConfigurationException {
         super(config);
-     
+
         YConfiguration tmConf = config.getConfig("TM");
         vblParamLengthBytes = tmConf.getInt("vblParamLengthBytes", 1);
-        if(vblParamLengthBytes<1) {
+        if (vblParamLengthBytes < 1) {
             throw new ConfigurationException("vblParamLengthBytes for TM cannot be less than 1");
         }
         typeOffset = tmConf.getInt("typeOffset");
         subTypeOffset = tmConf.getInt("subTypeOffset");
-        
+
     }
 
     protected void loadTelemetry() {
@@ -435,7 +435,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             throw new DatabaseLoadException(e);
         } catch (CompileException e) {
             throw new DatabaseLoadException("Failed to compile the generated java code " + code, e);
-        } 
+        }
     }
 
     protected void loadTelemetryParams() throws DatabaseLoadException {
@@ -479,7 +479,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     throw new MibLoadException(null, "Invalid parameter specied in the cur file: CUR_RLCHK=" + name);
                 }
 
-                MatchCriteria ctx = new Comparison(new ParameterInstanceRef(refp, false), r.valpar,
+                MatchCriteria ctx = new Comparison(new ParameterInstanceRef(refp, false), Long.toString(r.valpar),
                         OperatorType.EQUALITY);
                 Calibrator calibrator = getNumericCalibrator(r.select);
                 ContextCalibrator cc = new ContextCalibrator(ctx, calibrator);
@@ -564,14 +564,16 @@ public abstract class TmMibLoader extends BaseMibLoader {
                         .setEncoding(encoding);
                 return ptype;
             } else if (ptc == 9) {
-                AbsoluteTimeParameterType.Builder ptype = new AbsoluteTimeParameterType.Builder().setName("abstime_" + ptc + "_" + pfc);
+                AbsoluteTimeParameterType.Builder ptype = new AbsoluteTimeParameterType.Builder()
+                        .setName("abstime_" + ptc + "_" + pfc);
                 ReferenceTime rt = new ReferenceTime(timeEpoch);
                 ptype.setReferenceTime(rt);
                 ptype.setEncoding(encoding);
                 ptype.setScaling(0, 0.001);
                 return ptype;
             } else if (ptc == 10) {
-                StringParameterType.Builder ptype = new StringParameterType.Builder().setName("reltime_" + ptc + "_" + pfc);
+                StringParameterType.Builder ptype = new StringParameterType.Builder()
+                        .setName("reltime_" + ptc + "_" + pfc);
                 ptype.setEncoding(encoding);
                 return ptype;
             } else {
@@ -726,7 +728,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
     private void addEnumeratedAlarm(MibParameter mp, List<OcpRecord> l) {
         Parameter param = spaceSystem.getParameter(mp.name);
         EnumeratedParameterType.Builder ptype = (EnumeratedParameterType.Builder) param.getParameterType().toBuilder();
-       
+
         OcpRecord prev = null;
         MatchCriteria contextMatch = null;
 
@@ -746,14 +748,14 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     if (paraRef == null) {
                         throw new MibLoadException(ctx, "Unknown parameter '" + r.rlchk + " referenced in the ocp");
                     }
-                    contextMatch = new Comparison(new ParameterInstanceRef(paraRef, false), r.valpar,
+                    contextMatch = new Comparison(new ParameterInstanceRef(paraRef, false), Long.toString(r.valpar),
                             OperatorType.EQUALITY);
                 }
             } else {
                 contextMatch = null;
             }
 
-            AlarmLevels level = "S".equals(r.type) ? AlarmLevels.warning : AlarmLevels.critical;
+            AlarmLevels level = "S".equals(r.type) ? AlarmLevels.WARNING : AlarmLevels.CRITICAL;
             ptype.addAlarm(contextMatch, r.lvalu, level);
             prev = r;
         }
@@ -763,7 +765,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
     private void addNumericAlarm(MibParameter mp, List<OcpRecord> l, int minViolations) {
         Parameter param = spaceSystem.getParameter(mp.name);
         NumericParameterType.Builder<?> ptype = (NumericParameterType.Builder<?>) param.getParameterType().toBuilder();
-       
+
         OcpRecord prev = null;
         MatchCriteria contextMatch = null;
         for (OcpRecord r : l) {
@@ -791,14 +793,14 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     if (paraRef == null) {
                         throw new MibLoadException(ctx, "Unknown parameter '" + r.rlchk + " referenced in the ocp");
                     }
-                    contextMatch = new Comparison(new ParameterInstanceRef(paraRef, false), r.valpar,
+                    contextMatch = new Comparison(new ParameterInstanceRef(paraRef, false), Long.toString(r.valpar),
                             OperatorType.EQUALITY);
                 }
             } else {
                 contextMatch = null;
             }
 
-            AlarmLevels level = "S".equals(r.type) ? AlarmLevels.warning : AlarmLevels.critical;
+            AlarmLevels level = "S".equals(r.type) ? AlarmLevels.WARNING : AlarmLevels.CRITICAL;
             NumericAlarm alarm = ptype.createOrGetAlarm(contextMatch);
             alarm.setMinViolations(minViolations);
             alarm.getStaticAlarmRanges().addRange(range, level);
@@ -984,11 +986,13 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     ComparisonList cl = new ComparisonList();
                     if (pi1 != null) {
                         cl.addComparison(
-                                new Comparison(new ParameterInstanceRef(pi1, false), pid.pi1, OperatorType.EQUALITY));
+                                new Comparison(new ParameterInstanceRef(pi1, false), Long.toString(pid.pi1),
+                                        OperatorType.EQUALITY));
                     }
                     if (pi2 != null) {
                         cl.addComparison(
-                                new Comparison(new ParameterInstanceRef(pi2, false), pid.pi2, OperatorType.EQUALITY));
+                                new Comparison(new ParameterInstanceRef(pi2, false), Long.toString(pid.pi2),
+                                        OperatorType.EQUALITY));
                     }
                     seq1.setRestrictionCriteria(cl);
                     spaceSystem.addSequenceContainer(seq1);

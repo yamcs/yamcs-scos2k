@@ -1,11 +1,9 @@
 package org.yamcs.scos2k;
 
-import java.util.Map;
-
 import org.yamcs.ConfigurationException;
 import org.yamcs.YConfiguration;
 import org.yamcs.scos2k.MibLoaderBits.MibLoadException;
-import org.yamcs.xtce.DatabaseLoadException;
+import org.yamcs.mdb.DatabaseLoadException;
 import org.yamcs.xtce.Header;
 import org.yamcs.xtce.SpaceSystem;
 
