@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
@@ -7,20 +8,46 @@
 	<packaging>jar</packaging>
 	<name>Yamcs SCOS-2000</name>
 	<groupId>org.yamcs</groupId>
-	<version>1.0-SNAPSHOT</version>
-	<description>Implements SCOS 2000 MIB loader including executors for OL expressions and decoding of special SCOS 2000 data types</description>
+	<version>0.1-SNAPSHOT</version>
+	<description>Implements SCOS 2000 MIB loader including executors for OL
+		expressions and decoding of special SCOS 2000 data types</description>
+	<licenses>
+		<license>
+			<name>GNU Affero General Public License (AGPL)</name>
+			<url>https://www.gnu.org/licenses/agpl-3.0.html</url>
+		</license>
+	</licenses>
+
+	<scm>
+		<connection>scm:git:git@github.com:yamcs/yamcs-scos2k.git</connection>
+		<developerConnection>scm:git:ssh@github.com:yamcs/yamcs-scos2k.git</developerConnection>
+		<url>https://github.com/yamcs/yamcs-scos2k</url>
+		<tag>HEAD</tag>
+	</scm>
+
+	<organization>
+		<name>Space Applications Services</name>
+		<url>https://www.spaceapplications.com</url>
+	</organization>
+
+	<developers>
+		<developer>
+			<id>yamcs.org</id>
+			<name>Yamcs Team</name>
+		</developer>
+	</developers>
 	<dependencies>
 		<dependency>
 			<groupId>org.yamcs</groupId>
 			<artifactId>yamcs-core</artifactId>
-			<version>5.7.10</version>
+			<version>5.10.0</version>
 		</dependency>
 
 		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<version>5.9.3</version>
 			<scope>test</scope>
-			<version>4.13.1</version>
 		</dependency>
 	</dependencies>
 	<build>
@@ -30,10 +57,95 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.10.1</version>
 				<configuration>
-					<release>11</release>
+					<release>17</release>
 				</configuration>
 			</plugin>
 		</plugins>
 	</build>
+	
+	<distributionManagement>
+		<snapshotRepository>
+			<id>ossrh</id>
+			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
+		</snapshotRepository>
+		<repository>
+			<id>ossrh</id>
+			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+		</repository>
+	</distributionManagement>
+	<profiles>
+		<profile>
+			<id>yamcs-release</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-source-plugin</artifactId>
+						<version>3.3.1</version>
+						<executions>
+							<execution>
+								<id>attach-sources</id>
+								<goals>
+									<goal>jar-no-fork</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
 
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-gpg-plugin</artifactId>
+						<version>3.2.2</version>
+						<executions>
+							<execution>
+								<id>sign-artifacts</id>
+								<phase>verify</phase>
+								<goals>
+									<goal>sign</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+					<plugin>
+						<groupId>org.sonatype.plugins</groupId>
+						<artifactId>nexus-staging-maven-plugin</artifactId>
+						<version>1.6.13</version>
+						<extensions>true</extensions>
+						<configuration>
+							<serverId>ossrh</serverId>
+							<nexusUrl>https://oss.sonatype.org/</nexusUrl>
+							<autoReleaseAfterClose>false</autoReleaseAfterClose>
+						</configuration>
+					</plugin>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-javadoc-plugin</artifactId>
+						<version>3.6.3</version>
+						<executions>
+							<execution>
+								<id>attach-javadocs</id>
+								<goals>
+									<goal>jar</goal>
+								</goals>
+							</execution>
+						</executions>
+						<configuration>
+							<release>17</release>
+							<author>false</author>
+							<breakiterator>true</breakiterator>
+							<links>
+								<link>
+									https://docs.yamcs.org/javadoc/yamcs/latest/</link>
+							</links>
+							<additionalOptions>
+								<additionalOption>-Xdoclint:none</additionalOption>
+								<additionalOption>-Xdoclint:html</additionalOption>
+								<additionalOption>-Xdoclint:reference</additionalOption>
+							</additionalOptions>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 </project>

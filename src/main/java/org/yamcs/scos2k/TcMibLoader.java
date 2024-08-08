@@ -16,6 +16,7 @@ import org.yamcs.scos2k.MibLoaderBits.MibLoadException;
 import org.yamcs.scos2k.MibLoaderBits.PrfRecord;
 import org.yamcs.scos2k.MibLoaderBits.TcHeaderRecord;
 import org.yamcs.utils.StringConverter;
+import org.yamcs.xtce.AggregateArgumentType;
 import org.yamcs.xtce.Argument;
 import org.yamcs.xtce.ArgumentAssignment;
 import org.yamcs.xtce.ArgumentEntry;
@@ -372,7 +373,7 @@ public abstract class TcMibLoader extends TmMibLoader {
             throw new MibLoadException(ctx,
                     "argument '" + cpc.pname + ": CPC_CATEG=" + cpc.categ + " not supported");
         }
-        if (cpc.unit != null) {
+        if (cpc.unit != null && cpc.ptc != 12) {//we exclude 12 because aggregate arguments cannot have units
             ((BaseDataType.Builder<?>) argType).addUnit(new UnitType(cpc.unit));
         }
         arg.setArgumentType(argType.build());
@@ -435,8 +436,23 @@ public abstract class TcMibLoader extends TmMibLoader {
 
     private ArgumentType.Builder<?> createArgumentTypeNcateg(CdfRecord cdf) {
         CpcRecord cpc = cdf.cpc;
-        DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
-        return (ArgumentType.Builder<?>) getDataType(encoding, "arg_" + cpc.pname, false);
+        if (cpc.ptc == 12) {
+            // (pfc, ptc) = (12, 1) is used to embed TC packets inside TM or TC packets.
+            // For example PUS(11,10) time-based schedule detail report
+            // (pfc, ptc) = (12, 0) is used to embed TM packets inside TM or TC packets.
+            // This does not seem used in PUS however we support it
+            if (cpc.pfc != 0 && cpc.pfc != 1) {
+                throw new MibLoadException(ctx, String.format("Invalid combination (PTC, PFC):"
+                        + " (%d, %d)", cpc.ptc, cpc.pfc));
+            }
+
+            AggregateArgumentType.Builder aggrb = new AggregateArgumentType.Builder();
+            MibLoaderBits.addPtc12Members(spaceSystem, aggrb, cpc.pfc);
+            return aggrb;
+        } else {
+            DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
+            return (ArgumentType.Builder<?>) getDataType(encoding, "arg_" + cpc.pname, false);
+        }
     }
 
     private ArgumentType.Builder<?> createArgumentTypeTcateg(CdfRecord cdf) {
@@ -888,8 +904,8 @@ public abstract class TcMibLoader extends TmMibLoader {
             CommandVerifier cv = verifiers.get(line[IDX_CVP_CVSID]);
             if (cv == null) {
                 continue;
-              //  throw new MibLoadException(ctx,
-               //         "Verifier profile makes reference to unknown CVP_CVSID=" + line[IDX_CVP_CVSID]);
+                // throw new MibLoadException(ctx,
+                // "Verifier profile makes reference to unknown CVP_CVSID=" + line[IDX_CVP_CVSID]);
             }
             mc.addVerifier(cv);
         }

@@ -1,8 +1,6 @@
 package org.yamcs.scos2k.ol;
 
 import java.io.StringReader;
-import java.util.Arrays;
-import java.util.List;
 
 import org.codehaus.janino.SimpleCompiler;
 import org.yamcs.algorithms.AbstractAlgorithmExecutor;
@@ -40,7 +38,7 @@ public class OLExecutor extends AbstractAlgorithmExecutor {
         ProcessorData pdata = execCtx.getProcessorData();
         globalVars = getGlobalVars(pdata);
         this.eventProducer = execCtx.getProcessorData().getEventProducer();
-        XtceDb xtcedb = execCtx.getXtceDb();
+        XtceDb xtcedb = execCtx.getMdb();
         String formula = calg.getAlgorithmText();
         this.parameterTypeProcessor = new ParameterTypeProcessor(execCtx.getProcessorData());
         String name = algorithmDef.getName();
