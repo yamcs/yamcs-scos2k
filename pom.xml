@@ -7,13 +7,13 @@
 	<packaging>jar</packaging>
 	<name>Yamcs SCOS-2000</name>
 	<groupId>org.yamcs</groupId>
-	<version>1.0-SNAPSHOT</version>
+	<version>0.1-SNAPSHOT</version>
 	<description>Implements SCOS 2000 MIB loader including executors for OL expressions and decoding of special SCOS 2000 data types</description>
 	<dependencies>
 		<dependency>
 			<groupId>org.yamcs</groupId>
 			<artifactId>yamcs-core</artifactId>
-			<version>5.10.0-SNAPSHOT</version>
+			<version>5.10.0</version>
 		</dependency>
 
 		<dependency>
@@ -30,7 +30,7 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.10.1</version>
 				<configuration>
-					<release>11</release>
+					<release>17</release>
 				</configuration>
 			</plugin>
 		</plugins>

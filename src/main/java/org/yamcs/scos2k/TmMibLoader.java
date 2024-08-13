@@ -32,6 +32,7 @@ import org.yamcs.scos2k.ol.OLParser;
 import org.yamcs.scos2k.ol.ParseException;
 import org.yamcs.xtce.util.DoubleRange;
 import org.yamcs.xtce.AbsoluteTimeParameterType;
+import org.yamcs.xtce.AggregateParameterType;
 import org.yamcs.xtce.AlarmLevels;
 import org.yamcs.xtce.BaseDataType;
 import org.yamcs.xtce.BinaryParameterType;
@@ -116,13 +117,15 @@ public abstract class TmMibLoader extends BaseMibLoader {
         loadLimits();
     }
 
-    // Calibration conditional selection
     final static int IDX_CUR_PNAME = 0;
     final static int IDX_CUR_POS = 1;
     final static int IDX_CUR_RLCHK = 2;
     final static int IDX_CUR_VALPAR = 3;
     final static int IDX_CUR_SELECT = 4;
 
+    /**
+     * CUR: Calibration conditional selection
+     */
     private void loadCur() throws DatabaseLoadException {
         switchTo("cur");
         String[] line;
@@ -138,9 +141,6 @@ public abstract class TmMibLoader extends BaseMibLoader {
         }
     }
 
-    // point pair calibration
-    // Numerical calibrations: caf
-    // Numerical calibrations definition: cap
     final static int IDX_CAF_NUMBR = 0;
     final static int IDX_CAF_DESCR = 1;
     final static int IDX_CAF_ENGFMT = 2;
@@ -152,6 +152,14 @@ public abstract class TmMibLoader extends BaseMibLoader {
     final static int IDX_CAP_XVALS = 1;
     final static int IDX_CAP_YVALS = 2;
 
+    /**
+     * Loads point pair calibration
+     * <p>
+     * CAF: Numerical calibrations
+     * <p>
+     * CAP: Numerical calibrations definition
+     * 
+     */
     private void loadCafCap() throws DatabaseLoadException {
         switchTo("caf");
 
@@ -186,8 +194,6 @@ public abstract class TmMibLoader extends BaseMibLoader {
         });
     }
 
-    // Textual calibrations: txf
-    // Textual calibrations definition: txp
     final static int IDX_TXF_NUMBER = 0;
     final static int IDX_TXF_DESCR = 1;
     final static int IDX_TXF_RAWFMT = 2;
@@ -197,6 +203,9 @@ public abstract class TmMibLoader extends BaseMibLoader {
     final static int IDX_TXP_TO = 2;
     final static int IDX_TXP_ALTXT = 3;
 
+    /**
+     * TXF: Textual calibrations TXP: Textual calibrations definition
+     */
     private void loadTxfTxp() throws DatabaseLoadException {
         switchTo("txf");
         String[] line;
@@ -277,6 +286,10 @@ public abstract class TmMibLoader extends BaseMibLoader {
     final static int IDX_LGF_POL4 = 5;
     final static int IDX_LGF_POL5 = 6;
 
+    /**
+     * 
+     * LGF: Logarithmic calibrations definitions:
+     */
     private void loadLgf() throws DatabaseLoadException {
         switchTo("lgf");
         String[] line;
@@ -319,7 +332,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
     final static int IDX_PCF_VPLB = 24;
     final static int IDX_PCF_PATCHABLE = 25;
 
-    void loadPfc() {
+    void loadPcf() {
         switchTo("pcf");
         String[] line;
         while ((line = nextLine()) != null) {
@@ -444,7 +457,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
         loadTxfTxp();
         loadMcf();
         loadLgf();
-        loadPfc();
+        loadPcf();
         for (MibParameter mp : parameters.values()) {
             if (mp.ptc == 11) { // deduced
                 continue;
@@ -457,6 +470,9 @@ public abstract class TmMibLoader extends BaseMibLoader {
             if (mp.pid != -1) {
                 p.addAlias(OB_PID_NAMESPACE, Integer.toString(mp.pid));
             }
+            //if(spaceSystem.getParameterType(mp.ptype.getName()) == null) {
+             //   spaceSystem.addParameterType(mp.ptype);    
+            //}            
             spaceSystem.addParameter(p);
         }
         loadSynthetic();
@@ -492,30 +508,32 @@ public abstract class TmMibLoader extends BaseMibLoader {
 
     private ParameterType createParameterType(MibParameter mp) {
         String pcfCateg = mp.pcfCateg;
-        ParameterType.Builder<?> ptype;
+        ParameterType.Builder<?> ptypeb;
         if (pcfCateg.equals("N")) {
-            ptype = createParameterTypeNcateg(mp);
+            ptypeb = createParameterTypeNcateg(mp);
         } else if (pcfCateg.equals("S")) {
-            ptype = createParameterTypeScateg(mp);
+            ptypeb = createParameterTypeScateg(mp);
         } else if (pcfCateg.equals("T")) {
-            ptype = createParameterTypeTcateg(mp);
+            ptypeb = createParameterTypeTcateg(mp);
         } else {
             throw new MibLoadException(ctx, "Invalid value '" + pcfCateg + "' for column PCF_CATEG");
         }
 
         if (mp.unit != null) {
-            ((BaseDataType.Builder<?>) ptype).addUnit(new UnitType(mp.unit));
+            ((BaseDataType.Builder<?>) ptypeb).addUnit(new UnitType(mp.unit));
         }
 
         if ("C".equals(mp.pcfNatur) && mp.parval != null) {
             try {
-                ptype.setInitialValue(mp.parval);
+                ptypeb.setInitialValue(mp.parval);
             } catch (IllegalArgumentException e) {
                 throw new MibLoadException(null,
                         "Cannot set default value for parameter '" + mp.name + "': " + e.getMessage());
             }
         }
-        return ptype.build();
+        var ptype = ptypeb.build();
+        spaceSystem.addParameterType(ptype);
+        return ptype;
     }
 
     private ParameterType.Builder<?> createParameterTypeNcateg(MibParameter mp) {
@@ -576,6 +594,20 @@ public abstract class TmMibLoader extends BaseMibLoader {
                         .setName("reltime_" + ptc + "_" + pfc);
                 ptype.setEncoding(encoding);
                 return ptype;
+            } else if (ptc == 12) {
+                // (pfc, ptc) = (12, 1) is used to embed TC packets inside TM or TC packets.
+                // For example PUS(11,10) time-based schedule detail report
+                // (pfc, ptc) = (12, 0) is used to embed TM packets inside TM or TC packets. 
+                // This does not seem used in PUS however we support it
+                if (pfc != 0 && pfc != 1) {
+                    throw new MibLoadException(ctx, String.format("Invalid combination (PTC, PFC):"
+                            + " (%d, %d)", mp.ptc, mp.pfc));
+                }
+
+                AggregateParameterType.Builder aggrb = new AggregateParameterType.Builder();
+                aggrb.setName("mib_ptype_ptc_"+ptc+"pcf_"+mp.pfc);
+                MibLoaderBits.addPtc12Members(spaceSystem, aggrb, mp.pfc);
+                return aggrb;
             } else {
                 throw new MibLoadException(ctx, "Unsupported (PTC, PFC): (" + ptc + "," + pfc + ")");
             }
@@ -625,11 +657,11 @@ public abstract class TmMibLoader extends BaseMibLoader {
         int ptc = mp.ptc;
         int pfc = mp.pfc;
         String pcfCurtx = mp.pcfCurtx;
-        List<ValueEnumeration> l = enumerations.get(pcfCurtx);
-        List<ValueEnumerationRange> lr = enumerationRanges.get(pcfCurtx);
+        List<ValueEnumeration> enumList = enumerations.get(pcfCurtx);
+        List<ValueEnumerationRange> enumRangeList = enumerationRanges.get(pcfCurtx);
         DataEncoding.Builder<?> encoding = getDataEncoding(ctx, ptc, pfc, -1);
 
-        if (l == null && lr == null) {
+        if (enumList == null && enumRangeList == null) {
             if (curRecords.containsKey(mp.name)) {
                 log.warn("Parameter {}: textual context calibrators not supported, using integer", mp.name);
                 IntegerParameterType.Builder ptype = new IntegerParameterType.Builder()
@@ -639,17 +671,17 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 return ptype;
             } else {
                 throw new MibLoadException(ctx,
-                        "Textual calibration for pararmeter " + mp.name + " '" + pcfCurtx + "' not found in TXF file");
+                        "Textual calibration for parameter " + mp.name + " '" + pcfCurtx + "' not found in TXF file");
             }
         }
         EnumeratedParameterType.Builder ptype = new EnumeratedParameterType.Builder().setName(pcfCurtx);
-        if (l != null) {
-            for (ValueEnumeration ve : l) {
+        if (enumList != null) {
+            for (ValueEnumeration ve : enumList) {
                 ptype.addEnumerationValue(ve);
             }
         }
-        if (lr != null) {
-            for (ValueEnumerationRange ver : lr) {
+        if (enumRangeList != null) {
+            for (ValueEnumerationRange ver : enumRangeList) {
                 ptype.addEnumerationRange(ver);
             }
         }
@@ -956,14 +988,14 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 Parameter pi1 = null;
                 Parameter pi2 = null;
                 if (pic.pi1Offset >= 0) {
-                    IntegerParameterType pi1type = getIntegerParameterType(pic.pi1Width);
+                    IntegerParameterType pi1type = getIntegerParameterType(spaceSystem, pic.pi1Width);
                     pi1 = new Parameter(name + "_pi1");
                     pi1.setParameterType(pi1type);
-                    spaceSystem.addParameter(pi1);
+                    spaceSystem.addParameter(pi1);                    
                     seq.addEntry(new ParameterEntry(8 * pic.pi1Offset, ReferenceLocationType.CONTAINER_START, pi1));
                 }
                 if (pic.pi2Offset >= 0) {
-                    IntegerParameterType pi2type = getIntegerParameterType(pic.pi2Width);
+                    IntegerParameterType pi2type = getIntegerParameterType(spaceSystem, pic.pi2Width);
                     pi2 = new Parameter(name + "_pi2");
                     pi2.setParameterType(pi2type);
                     spaceSystem.addParameter(pi2);
@@ -1049,7 +1081,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
     final static int IDX_PLF_TDOCC = 7;
 
     void loadPacketEntries() {
-        switchTo("plf");
+        switchTo("plf"); // PLF: Parameters location in fixed packets
         String[] line;
         while ((line = nextLine()) != null) {
             checkMandatory(line, IDX_PLF_NAME, IDX_PLF_SPID, IDX_PLF_OFFBY, IDX_PLF_OFFBI);
@@ -1109,6 +1141,9 @@ public abstract class TmMibLoader extends BaseMibLoader {
     final static int IDX_VPD_FORM = 12;
     final static int IDX_VPD_OFFSET = 13;
 
+    /**
+     * Load Variable Packet Display definition
+     */
     void loadVpd() {
         switchTo("vpd");
         String[] line;
@@ -1145,15 +1180,15 @@ public abstract class TmMibLoader extends BaseMibLoader {
             List<VpdRecord> l = me.getValue();
             for (PidRecord pr : pidVpdRecords.get(tpsd)) {
                 SequenceContainer seq = spidToSeqContainer.get(pr.spid);
-                addParamsToContainer(seq, 8 * pr.dfhsize, l, 0);
+                addVdpParamsToContainer(seq, 8 * pr.dfhsize, l, 0);
             }
         }
     }
 
-    private void addParamsToContainer(SequenceContainer seq, int absOffset, List<VpdRecord> l, int count) {
-        for (int i = 0; i < l.size(); i++) {
+    private void addVdpParamsToContainer(SequenceContainer seq, int absOffset, List<VpdRecord> lvdpRecords, int count) {
+        for (int i = 0; i < lvdpRecords.size(); i++) {
             count++;
-            VpdRecord vpd = l.get(i);
+            VpdRecord vpd = lvdpRecords.get(i);
             Parameter p = spaceSystem.getParameter(vpd.name);
             int offset = vpd.offset;
             ReferenceLocationType location = ReferenceLocationType.PREVIOUS_ENTRY;
@@ -1176,7 +1211,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             }
 
             if (vpd.grpSize > 0) {
-                if (l.size() - i - 1 < vpd.grpSize) {
+                if (lvdpRecords.size() - i - 1 < vpd.grpSize) {
                     throw new MibLoadException(null,
                             "Inconsistency in vpd file, for parameter " + vpd.name + " on position " + vpd.pos
                                     + " grp size is " + vpd.grpSize + " but there are only " + i
@@ -1184,7 +1219,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 }
                 if (vpd.grpSize == 1) {
                     i++;
-                    VpdRecord vpd1 = l.get(i);
+                    VpdRecord vpd1 = lvdpRecords.get(i);
                     Parameter p1 = spaceSystem.getParameter(vpd1.name);
                     if (p1 == null) {
                         throw new MibLoadException(null,
@@ -1199,7 +1234,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     ContainerEntry ce = new ContainerEntry(0, ReferenceLocationType.PREVIOUS_ENTRY, seq1);
                     ce.setRepeatEntry(new Repeat(new DynamicIntegerValue(new ParameterInstanceRef(p)), 0));
                     seq.addEntry(ce);
-                    addParamsToContainer(seq1, -1, l.subList(i + 1, i + 1 + vpd.grpSize), count);
+                    addVdpParamsToContainer(seq1, -1, lvdpRecords.subList(i + 1, i + 1 + vpd.grpSize), count);
                     i += vpd.grpSize;
                     spaceSystem.addSequenceContainer(seq1);
                 }

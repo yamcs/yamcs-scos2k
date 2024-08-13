@@ -3,7 +3,10 @@ About Yamcs: SCOS2K plugin
 
 The SCOS2K plugin enhances Yamcs by providing functionality to load and work with SCOS-2000 MIB (Management Information Base).
 
-The SCOS-2000 MIB is composed of a collection of text files described in the SCOS-2000 Database Import ICD, referenced as EGOS-MCS-S2K-ICD-0001. While this document is not publicly available, copies may be accessible online through various sources by searching for its reference number.
+The SCOS-2000 MIB is composed of a collection of text files described in the SCOS-2000 Database Import ICD, referenced as EGOS-MCS-S2K-ICD-0001.
+While this document is not publicly available, copies may be accessible online through various sources by searching for its reference number.
+
+
 
 
 .. rubric:: Usage with Maven
