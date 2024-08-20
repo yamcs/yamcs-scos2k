@@ -9,12 +9,12 @@ import java.util.Map;
 
 import org.yamcs.ConfigurationException;
 import org.yamcs.YConfiguration;
-import org.yamcs.scos2k.MibLoaderBits.CcaRecord;
-import org.yamcs.scos2k.MibLoaderBits.CdfRecord;
-import org.yamcs.scos2k.MibLoaderBits.CpcRecord;
+import org.yamcs.scos2k.MonitoringData.CcaRecord;
+import org.yamcs.scos2k.CommandingData.CdfRecord;
+import org.yamcs.scos2k.CommandingData.CpcRecord;
 import org.yamcs.scos2k.MibLoaderBits.MibLoadException;
-import org.yamcs.scos2k.MibLoaderBits.PrfRecord;
-import org.yamcs.scos2k.MibLoaderBits.TcHeaderRecord;
+import org.yamcs.scos2k.MonitoringData.PrfRecord;
+import org.yamcs.scos2k.CommandingData.TcHeaderRecord;
 import org.yamcs.utils.StringConverter;
 import org.yamcs.xtce.AggregateArgumentType;
 import org.yamcs.xtce.Argument;
@@ -273,6 +273,15 @@ public abstract class TcMibLoader extends TmMibLoader {
             }
 
             MetaCommand mc = new MetaCommand(cname);
+            MetaCommand mc1 = mc;
+            MetaCommand abstractMc = null;
+            if (hasReadOnlyArguments(cname)) {
+                abstractMc = new MetaCommand(cname + "_abstract");
+                abstractMc.setAbstract(true);
+                mc.setBaseMetaCommand(abstractMc);
+                mc1 = abstractMc;
+            }
+
             mc.setShortDescription(line[IDX_CCF_DESCR]);
             mc.setLongDescription(getString(line, IDX_CCF_DESCR2, null));
             String criticality = getString(line, IDX_CCF_CRITICAL, "N");
@@ -282,31 +291,48 @@ public abstract class TcMibLoader extends TmMibLoader {
             mc.setCommandContainer(container);
 
             if (thr != null) {
-                mc.setBaseMetaCommand(thr.mc);
+                mc1.setBaseMetaCommand(thr.mc);
                 container.setBaseContainer(thr.mc.getCommandContainer());
                 if (thr.apid != null) {
                     int apid = getInt(line, IDX_CCF_APID);
-                    mc.addArgumentAssignment(new ArgumentAssignment(thr.apid.getName(), Integer.toString(apid)));
+                    mc1.addArgumentAssignment(new ArgumentAssignment(thr.apid.getName(), Integer.toString(apid)));
                 }
                 if (thr.type != null) {
                     int type = getInt(line, IDX_CCF_TYPE);
-                    mc.addArgumentAssignment(new ArgumentAssignment(thr.type.getName(), Integer.toString(type)));
+                    mc1.addArgumentAssignment(new ArgumentAssignment(thr.type.getName(), Integer.toString(type)));
                 }
                 if (thr.subType != null) {
                     int subType = getInt(line, IDX_CCF_STYPE);
-                    mc.addArgumentAssignment(new ArgumentAssignment(thr.subType.getName(), Integer.toString(subType)));
+                    mc1.addArgumentAssignment(new ArgumentAssignment(thr.subType.getName(), Integer.toString(subType)));
                 }
                 if (thr.ack != null && hasColumn(line, IDX_CCF_ACK)) {
                     int ack = getInt(line, IDX_CCF_ACK);
-                    mc.addArgumentAssignment(new ArgumentAssignment(thr.ack.getName(), Integer.toString(ack)));
+                    mc1.addArgumentAssignment(new ArgumentAssignment(thr.ack.getName(), Integer.toString(ack)));
                 }
             }
-            addArguments(mc);
+            addArguments(abstractMc, mc);
+            if (abstractMc != null) {
+                spaceSystem.addMetaCommand(abstractMc);
+            }
             spaceSystem.addMetaCommand(mc);
         }
     }
 
-    private void addArguments(MetaCommand mc) {
+    boolean hasReadOnlyArguments(String cname) {
+        List<CdfRecord> l = cdfRecords.get(cname);
+        if (l == null) {
+            return false;
+        }
+        return l.stream().anyMatch(cdf -> "F".equalsIgnoreCase(cdf.eltype));
+    }
+
+    /**
+     * add arguments.
+     * <p>
+     * abstractMc is not null and is the parent of mc in case the command has read-only arguments. The read-only
+     * arguments are added to the abstractMc and are fixed by the inheritance argument assignment
+     */
+    private void addArguments(MetaCommand abstractMc, MetaCommand mc) {
 
         List<CdfRecord> l = cdfRecords.get(mc.getName());
         if (l == null) {
@@ -341,7 +367,18 @@ public abstract class TcMibLoader extends TmMibLoader {
                 }
                 mc.addArgument(arg);
             } else if ("F".equalsIgnoreCase(cdf.eltype)) {
-                throw new MibLoadException(ctx, "parameter with CDF_ELTYPE=F not supported");
+                Argument arg = createArgument(cdf);
+                se = new ArgumentEntry(arg);
+                String name = arg.getName();
+                if (abstractMc.getArgument(name) != null) {
+                    int i = 1;
+                    while (abstractMc.getArgument(name + "_" + i) != null) {
+                        i++;
+                    }
+                    arg.setName(name + "_" + i);
+                }
+                abstractMc.addArgument(arg);
+                mc.addArgumentAssignment(new ArgumentAssignment(arg.getName(), cdf.value));
             } else {
                 throw new MibLoadException(ctx, "parameter with CDF_ELTYPE=" + cdf.eltype + " not supported");
             }
@@ -373,7 +410,7 @@ public abstract class TcMibLoader extends TmMibLoader {
             throw new MibLoadException(ctx,
                     "argument '" + cpc.pname + ": CPC_CATEG=" + cpc.categ + " not supported");
         }
-        if (cpc.unit != null && cpc.ptc != 12) {//we exclude 12 because aggregate arguments cannot have units
+        if (cpc.unit != null && cpc.ptc != 12) {// we exclude 12 because aggregate arguments cannot have units
             ((BaseDataType.Builder<?>) argType).addUnit(new UnitType(cpc.unit));
         }
         arg.setArgumentType(argType.build());
@@ -384,7 +421,7 @@ public abstract class TcMibLoader extends TmMibLoader {
         CpcRecord cpc = cdf.cpc;
         CcaRecord cca = ccaRecords.get(cpc.ccaref);
         if (cca == null) {
-            throw new MibLoadException(ctx, "Parameter '" + cpc.pname + " makes reference to CPC_CCAREF='" + cpc.ccaref
+            throw new MibLoadException(ctx, "Parameter '" + cpc.pname + " refers to CPC_CCAREF='" + cpc.ccaref
                     + "' not found in the CCA table");
         }
         DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
@@ -396,10 +433,16 @@ public abstract class TcMibLoader extends TmMibLoader {
             return argType;
         } else if ("I".equals(cca.engfmt)) {
             IntegerArgumentType.Builder argType = new IntegerArgumentType.Builder().setName(cpc.pname);
+            argType.setSigned(true);
+            argType.setEncoding(encoding);
+            return argType;
+        } else if ("U".equals(cca.engfmt)) {
+            IntegerArgumentType.Builder argType = new IntegerArgumentType.Builder().setName(cpc.pname);
+            argType.setSigned(false);
             argType.setEncoding(encoding);
             return argType;
         } else {
-            throw new MibLoadException(ctx, "Parameter '" + cpc.pname + " makes reference to CCA_ENGFMT='" + cca.engfmt
+            throw new MibLoadException(ctx, "Parameter '" + cpc.pname + " refers to CCA_ENGFMT='" + cca.engfmt
                     + "' unknonw");
         }
     }
@@ -415,8 +458,8 @@ public abstract class TcMibLoader extends TmMibLoader {
             DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
             type = new EnumeratedArgumentType.Builder().setName("parameter_id_" + cpc.pfc);
             for (MibParameter mp : parameters.values()) {
-                if (mp.pid != -1) {
-                    type.addEnumerationValue(new ValueEnumeration(mp.pid, mp.name));
+                if (mp.pcf.pid != -1) {
+                    type.addEnumerationValue(new ValueEnumeration(mp.pcf.pid, mp.name()));
                 }
             }
             type.setEncoding(encoding);
@@ -872,6 +915,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                     throw new MibLoadException(ctx, "No CVE record found for CVS_ID=" + id);
                 }
                 CommandVerifier v = new CommandVerifier(Type.CONTAINER, type, checkWindow);
+                verifiers.put(id, v);
             } else {
                 throw new MibLoadException(ctx,
                         "Invalid value '" + source + "' for CVS_SOURCE. Expected R or V");

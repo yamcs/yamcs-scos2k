@@ -18,7 +18,9 @@ public class Operation {
         COMP.put(key(Type.DOUBLE, Type.LONG), Type.BOOLEAN);
         COMP.put(key(Type.DOUBLE, Type.DOUBLE), Type.BOOLEAN);
         COMP.put(key(Type.LONG, Type.LONG), Type.BOOLEAN);
+
         COMP.put(key(Type.BOOLEAN, Type.BOOLEAN), Type.BOOLEAN);
+        COMP.put(key(Type.STRING, Type.STRING), Type.BOOLEAN);
     }
 
     final Map<Integer, Type> typeOps;
@@ -65,11 +67,45 @@ public class Operation {
     }
 
     public ExpressionCode getCode(ExpressionCode ec1, ExpressionCode ec2) throws ParseException {
-        Type rt = getTypeResult(ec1.type, ec2.type);
+        Type type1 = ec1.type;
+        Type type2 = ec2.type;
+        String code1 = ec1.code;
+        String code2 = ec2.code;
+
+        if (type1 == Type.ENUM) {
+            if (type2 == Type.STRING) {
+                type1 = Type.STRING;
+                code1 += ".getEngValue().getStringValue()";
+            } else {
+                type1 = Type.LONG;
+                code1 += ".getRawValue().toLong()";
+            }
+        }
+        if (type2 == Type.ENUM) {
+            if (type1 == Type.STRING) {
+                type2 = Type.STRING;
+                code2 += ".getEngValue().getStringValue()";
+            } else {
+                type2 = Type.LONG;
+                code2 += ".getRawValue().toLong()";
+            }
+        }
+        Type rt = getTypeResult(type1, type2);
         if (rt == null) {
             throw new ParseException("Unsupported operation " + code + " for expressions: " + ec1 + " and " + ec2);
         }
-        return new ExpressionCode(rt, ec1.code + " " + code + " " + ec2.code);
+        if (type1 == Type.STRING) {
+            if (this == EQUAL) {
+                return new ExpressionCode(rt, code1 + ".equals(" + code2 + ")");
+            } else if (this == DIFFER) {
+                return new ExpressionCode(rt, "!" + code1 + ".equals(" + code2 + ")");
+            } else {
+                throw new ParseException("Unsupported operation " + code + " for expressions: " + ec1 + " and " + ec2);
+            }
+        } else {
+            return new ExpressionCode(rt, code1 + " " + code + " " + code2);
+        }
+
     }
 
     protected Type getTypeResult(Type type1, Type type2) throws ParseException {

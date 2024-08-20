@@ -16,7 +16,8 @@ public class OLFunction {
         javaFunction.put("tan", "Math.tan");
         javaFunction.put("arctan", "Math.atan");
         javaFunction.put("cotan", "org.yamcs.scos2k.ol.cotan");
-        javaFunction.put("arccotan", "org.yamcs.scos2k.ol.cotan");            
+        javaFunction.put("arccotan", "org.yamcs.scos2k.ol.cotan");
+        javaFunction.put("abs", "Math.abs");
     }
     static String getJavaFunctionName(String olName, int argCount) {
         if(argCount==2 && "arctan".equals(olName)) {

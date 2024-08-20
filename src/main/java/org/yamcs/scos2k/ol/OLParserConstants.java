@@ -41,35 +41,57 @@ public interface OLParserConstants {
   /** RegularExpression Id. */
   int ARCCOTAN = 20;
   /** RegularExpression Id. */
-  int SYSTEM_TIME = 21;
+  int ABS = 21;
   /** RegularExpression Id. */
-  int SYSTEM_DATE = 22;
+  int SYSTEM_TIME = 22;
   /** RegularExpression Id. */
-  int AND = 23;
+  int SYSTEM_DATE = 23;
   /** RegularExpression Id. */
-  int OR = 24;
+  int AND = 24;
   /** RegularExpression Id. */
-  int NOR = 25;
+  int OR = 25;
   /** RegularExpression Id. */
-  int LOR = 26;
+  int NOR = 26;
   /** RegularExpression Id. */
-  int XOR = 27;
+  int LOR = 27;
   /** RegularExpression Id. */
-  int LAND = 28;
+  int XOR = 28;
   /** RegularExpression Id. */
-  int NOT = 29;
+  int LAND = 29;
   /** RegularExpression Id. */
-  int LNOT = 30;
+  int NOT = 30;
   /** RegularExpression Id. */
-  int SYNTH = 31;
+  int LNOT = 31;
   /** RegularExpression Id. */
-  int IDENTIFIER = 32;
+  int SYNTH = 32;
   /** RegularExpression Id. */
-  int INTEGER_LITERAL = 33;
+  int IDENTIFIER = 33;
   /** RegularExpression Id. */
-  int FLOATING_POINT_LITERAL = 34;
+  int INTEGER_LITERAL = 34;
   /** RegularExpression Id. */
-  int EXPONENT = 35;
+  int FLOATING_POINT_LITERAL = 35;
+  /** RegularExpression Id. */
+  int STRING_LITERAL = 36;
+  /** RegularExpression Id. */
+  int EXPONENT = 37;
+  /** RegularExpression Id. */
+  int DIG2 = 38;
+  /** RegularExpression Id. */
+  int DIG3 = 39;
+  /** RegularExpression Id. */
+  int DIG4 = 40;
+  /** RegularExpression Id. */
+  int DIG6 = 41;
+  /** RegularExpression Id. */
+  int DIG7 = 42;
+  /** RegularExpression Id. */
+  int ABS_TIME_ADS = 43;
+  /** RegularExpression Id. */
+  int ABS_TIME_ASCIIA = 44;
+  /** RegularExpression Id. */
+  int ABS_TIME_ASCIIB = 45;
+  /** RegularExpression Id. */
+  int DELTA_TIME = 46;
 
   /** Lexical state. */
   int DEFAULT = 0;
@@ -97,6 +119,7 @@ public interface OLParserConstants {
     "\"arccos\"",
     "\"arctan\"",
     "\"arccotan\"",
+    "\"abs\"",
     "\"system_time\"",
     "\"system_date\"",
     "\"and\"",
@@ -111,7 +134,17 @@ public interface OLParserConstants {
     "<IDENTIFIER>",
     "<INTEGER_LITERAL>",
     "<FLOATING_POINT_LITERAL>",
+    "<STRING_LITERAL>",
     "<EXPONENT>",
+    "<DIG2>",
+    "<DIG3>",
+    "<DIG4>",
+    "<DIG6>",
+    "<DIG7>",
+    "<ABS_TIME_ADS>",
+    "<ABS_TIME_ASCIIA>",
+    "<ABS_TIME_ASCIIB>",
+    "<DELTA_TIME>",
     "\";\"",
     "\":=\"",
     "\"+\"",

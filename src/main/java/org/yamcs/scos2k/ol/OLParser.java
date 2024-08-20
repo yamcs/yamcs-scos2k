@@ -47,6 +47,7 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
       case ARCCOS:
       case ARCTAN:
       case ARCCOTAN:
+      case ABS:
       case SYSTEM_TIME:
       case SYSTEM_DATE:
       case NOT:
@@ -55,9 +56,11 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
       case IDENTIFIER:
       case INTEGER_LITERAL:
       case FLOATING_POINT_LITERAL:
-      case 38:
-      case 39:
-      case 40:
+      case STRING_LITERAL:
+      case DELTA_TIME:
+      case 49:
+      case 50:
+      case 51:
         ;
         break;
       default:
@@ -74,14 +77,14 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case IF:
       ConditionalStatement();
-      jj_consume_token(36);
+      jj_consume_token(47);
                                   body.append("\u005cn");
       break;
     default:
       jj_la1[2] = jj_gen;
       if (jj_2_1(2)) {
         AssignmentStatement();
-        jj_consume_token(36);
+        jj_consume_token(47);
                                               body.append(";\u005cn");
       } else if (jj_2_2(2)) {
         switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -93,7 +96,7 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
           ;
         }
         ec = Expression();
-        jj_consume_token(36);
+        jj_consume_token(47);
         body.append("return ");
         body.append(getReturnCode(ec));
         body.append(";\u005cn");
@@ -129,7 +132,7 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
   Token t;
   ExpressionCode ec;
     t = jj_consume_token(IDENTIFIER);
-    jj_consume_token(37);
+    jj_consume_token(48);
     ec = Expression();
       String varname = t.image;
       if(isLocalVar(varname)) {
@@ -169,8 +172,8 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
    Operation op = null;
     ec1 = ShiftExpression();
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case 47:
-    case 48:
+    case 58:
+    case 59:
       op = LogicOp1();
       ec2 = LogicalExpression();
       break;
@@ -187,8 +190,8 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
    Operation op = null;
     ec1 = RelationlExpression();
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case 49:
-    case 50:
+    case 60:
+    case 61:
       op = ShiftOp();
       ec2 = ShiftExpression();
       break;
@@ -200,23 +203,48 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
     throw new Error("Missing return statement in function");
   }
 
-  final public ExpressionCode RelationlExpression() throws ParseException {
+/*
+ExpressionCode RelationlExpression() :  {
  ExpressionCode ec1, ec2 = null;
  Operation op = null;
+}
+{
+    (ec1 = AdditiveExpression() [op = RelOp() ec2 = RelationlExpression()] )
+    { return getCode(ec1, ec2, op);}
+}
+*/
+  final public ExpressionCode RelationlExpression() throws ParseException {
+    ExpressionCode ec1, ec2 = null;
+    ExpressionCode result, result1;
+    Operation op = null;
+    boolean first = true;
     ec1 = AdditiveExpression();
-    switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case 43:
-    case 44:
-    case 45:
-    case 46:
+        result = ec1;
+    label_2:
+    while (true) {
+      switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+      case 54:
+      case 55:
+      case 56:
+      case 57:
+        ;
+        break;
+      default:
+        jj_la1[7] = jj_gen;
+        break label_2;
+      }
       op = RelOp();
-      ec2 = RelationlExpression();
-      break;
-    default:
-      jj_la1[7] = jj_gen;
-      ;
+      ec2 = AdditiveExpression();
+            result1 = getCode(ec1, ec2, op);
+            if (first) {
+                result = result1;
+                first = false;
+            } else {
+                result = getCode(result, result1, Operation.LOGIC_AND);
+            }
+            ec1 = ec2;
     }
-      {if (true) return getCode(ec1, ec2, op);}
+      {if (true) return result;}
     throw new Error("Missing return statement in function");
   }
 
@@ -225,8 +253,8 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
  Operation op = null;
     ec1 = MultiplicativeExpression();
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case 38:
-    case 39:
+    case 49:
+    case 50:
       op = AddOp();
       ec2 = AdditiveExpression();
       break;
@@ -243,10 +271,10 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
  Operation op = null;
     ec1 = UnaryExpression();
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case 51:
-    case 52:
-    case 53:
-    case 54:
+    case 62:
+    case 63:
+    case 64:
+    case 65:
       op = MulOp();
       ec2 = MultiplicativeExpression();
       break;
@@ -264,15 +292,15 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case NOT:
     case LNOT:
-    case 38:
-    case 39:
+    case 49:
+    case 50:
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-      case 38:
-        jj_consume_token(38);
-             op = Operation.PLUS;
+      case 49:
+        jj_consume_token(49);
+           op = Operation.PLUS;
         break;
-      case 39:
-        jj_consume_token(39);
+      case 50:
+        jj_consume_token(50);
             op = Operation.MINUS;
         break;
       case NOT:
@@ -312,6 +340,8 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
     case FALSE:
     case INTEGER_LITERAL:
     case FLOATING_POINT_LITERAL:
+    case STRING_LITERAL:
+    case DELTA_TIME:
       ec = Constant();
                       {if (true) return ec;}
       break;
@@ -319,10 +349,10 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
       t = jj_consume_token(IDENTIFIER);
                         {if (true) return getIdentifierCode(t.image);}
       break;
-    case 40:
-      jj_consume_token(40);
+    case 51:
+      jj_consume_token(51);
       ec = Expression();
-      jj_consume_token(41);
+      jj_consume_token(52);
                                  {if (true) return new ExpressionCode(ec.type, "("+ec.code+")");}
       break;
     case SYNTH:
@@ -337,12 +367,13 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
     case ARCCOS:
     case ARCTAN:
     case ARCCOTAN:
+    case ABS:
     case SYSTEM_TIME:
     case SYSTEM_DATE:
       fn = FunctionName();
-      jj_consume_token(40);
+      jj_consume_token(51);
       l = ArgumentList();
-      jj_consume_token(41);
+      jj_consume_token(52);
        StringBuilder sb = new StringBuilder();
        sb.append(OLFunction.getJavaFunctionName(fn, l.size()));
        sb.append("(");
@@ -372,17 +403,17 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
  ExpressionCode ec;
     ec = Expression();
                          l.add(ec);
-    label_2:
+    label_3:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-      case 42:
+      case 53:
         ;
         break;
       default:
         jj_la1[13] = jj_gen;
-        break label_2;
+        break label_3;
       }
-      jj_consume_token(42);
+      jj_consume_token(53);
       ec = Expression();
                               l.add(ec);
     }
@@ -423,6 +454,9 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
     case SYSTEM_DATE:
       t = jj_consume_token(SYSTEM_DATE);
       break;
+    case ABS:
+      t = jj_consume_token(ABS);
+      break;
     default:
       jj_la1[14] = jj_gen;
       jj_consume_token(-1);
@@ -436,30 +470,30 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
   List<String> paraList = new ArrayList<String>();
   Token t;
     jj_consume_token(SYNTH);
-    jj_consume_token(40);
+    jj_consume_token(51);
     t = jj_consume_token(IDENTIFIER);
                          paraList.add(t.image);
-    label_3:
+    label_4:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-      case 42:
+      case 53:
         ;
         break;
       default:
         jj_la1[15] = jj_gen;
-        break label_3;
+        break label_4;
       }
-      jj_consume_token(42);
+      jj_consume_token(53);
       t = jj_consume_token(IDENTIFIER);
                                paraList.add(t.image);
     }
-    jj_consume_token(41);
+    jj_consume_token(52);
         {if (true) return getSynthExpression(paraList);}
     throw new Error("Missing return statement in function");
   }
 
   final public ExpressionCode Constant() throws ParseException {
- Token t;
+   Token t;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case TRUE:
       t = jj_consume_token(TRUE);
@@ -473,9 +507,17 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
       t = jj_consume_token(INTEGER_LITERAL);
                                {if (true) return new ExpressionCode(Type.LONG, t.image);}
       break;
+    case DELTA_TIME:
+      t = jj_consume_token(DELTA_TIME);
+                        long reltime = parseDeltaTime(t.image); {if (true) return new ExpressionCode(Type.LONG, Long.toString(reltime));}
+      break;
     case FLOATING_POINT_LITERAL:
       t = jj_consume_token(FLOATING_POINT_LITERAL);
                                     {if (true) return new ExpressionCode(Type.DOUBLE, t.image);}
+      break;
+    case STRING_LITERAL:
+      t = jj_consume_token(STRING_LITERAL);
+                            String s = t.image; {if (true) return new ExpressionCode(Type.STRING, s);}
       break;
     default:
       jj_la1[16] = jj_gen;
@@ -487,20 +529,20 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
 
   final public Operation RelOp() throws ParseException {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case 43:
-      jj_consume_token(43);
+    case 54:
+      jj_consume_token(54);
           {if (true) return Operation.SMALLER_THAN;}
       break;
-    case 44:
-      jj_consume_token(44);
+    case 55:
+      jj_consume_token(55);
           {if (true) return Operation.SMALLER_THAN_EQ;}
       break;
-    case 45:
-      jj_consume_token(45);
+    case 56:
+      jj_consume_token(56);
           {if (true) return Operation.BIGGER_THAN;}
       break;
-    case 46:
-      jj_consume_token(46);
+    case 57:
+      jj_consume_token(57);
           {if (true) return Operation.BIGGER_THAN_EQ;}
       break;
     default:
@@ -513,12 +555,12 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
 
   final public Operation LogicOp1() throws ParseException {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case 47:
-      jj_consume_token(47);
+    case 58:
+      jj_consume_token(58);
            {if (true) return Operation.EQUAL;}
       break;
-    case 48:
-      jj_consume_token(48);
+    case 59:
+      jj_consume_token(59);
            {if (true) return Operation.DIFFER;}
       break;
     default:
@@ -531,12 +573,12 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
 
   final public Operation ShiftOp() throws ParseException {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case 49:
-      jj_consume_token(49);
+    case 60:
+      jj_consume_token(60);
              {if (true) return Operation.SHIFT_LEFT;}
       break;
-    case 50:
-      jj_consume_token(50);
+    case 61:
+      jj_consume_token(61);
            {if (true) return Operation.SHIFT_RIGHT;}
       break;
     default:
@@ -549,12 +591,12 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
 
   final public Operation AddOp() throws ParseException {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case 38:
-      jj_consume_token(38);
+    case 49:
+      jj_consume_token(49);
           {if (true) return Operation.PLUS;}
       break;
-    case 39:
-      jj_consume_token(39);
+    case 50:
+      jj_consume_token(50);
           {if (true) return Operation.MINUS;}
       break;
     default:
@@ -567,20 +609,20 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
 
   final public Operation MulOp() throws ParseException {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case 51:
-      jj_consume_token(51);
+    case 62:
+      jj_consume_token(62);
          {if (true) return Operation.STAR;}
       break;
-    case 52:
-      jj_consume_token(52);
+    case 63:
+      jj_consume_token(63);
            {if (true) return Operation.POW;}
       break;
-    case 53:
-      jj_consume_token(53);
+    case 64:
+      jj_consume_token(64);
           {if (true) return Operation.SLASH;}
       break;
-    case 54:
-      jj_consume_token(54);
+    case 65:
+      jj_consume_token(65);
           {if (true) return Operation.MODULUS;}
       break;
     default:
@@ -635,390 +677,62 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
     finally { jj_save(1, xla); }
   }
 
-  private boolean jj_3R_15() {
-    if (jj_scan_token(AND)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_14() {
-    if (jj_scan_token(OR)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_10() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_14()) {
-    jj_scanpos = xsp;
-    if (jj_3R_15()) {
-    jj_scanpos = xsp;
-    if (jj_3R_16()) {
-    jj_scanpos = xsp;
-    if (jj_3R_17()) {
-    jj_scanpos = xsp;
-    if (jj_3R_18()) return true;
-    }
-    }
-    }
-    }
-    return false;
-  }
-
-  private boolean jj_3R_6() {
-    if (jj_3R_8()) return true;
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_9()) jj_scanpos = xsp;
-    return false;
-  }
-
-  private boolean jj_3R_53() {
-    if (jj_scan_token(54)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_52() {
-    if (jj_scan_token(53)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_51() {
-    if (jj_scan_token(52)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_50() {
-    if (jj_scan_token(51)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_38() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_50()) {
-    jj_scanpos = xsp;
-    if (jj_3R_51()) {
-    jj_scanpos = xsp;
-    if (jj_3R_52()) {
-    jj_scanpos = xsp;
-    if (jj_3R_53()) return true;
-    }
-    }
-    }
-    return false;
-  }
-
-  private boolean jj_3R_5() {
-    if (jj_3R_6()) return true;
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_7()) jj_scanpos = xsp;
-    return false;
-  }
-
-  private boolean jj_3R_49() {
-    if (jj_3R_56()) return true;
-    if (jj_scan_token(40)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_48() {
-    if (jj_3R_55()) return true;
-    return false;
-  }
-
-  private boolean jj_3R_40() {
-    if (jj_scan_token(39)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_47() {
-    if (jj_scan_token(40)) return true;
-    if (jj_3R_5()) return true;
-    return false;
-  }
-
-  private boolean jj_3R_39() {
-    if (jj_scan_token(38)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_31() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_39()) {
-    jj_scanpos = xsp;
-    if (jj_3R_40()) return true;
-    }
-    return false;
-  }
-
-  private boolean jj_3R_46() {
-    if (jj_scan_token(IDENTIFIER)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_45() {
-    if (jj_3R_54()) return true;
-    return false;
-  }
-
-  private boolean jj_3R_37() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_45()) {
-    jj_scanpos = xsp;
-    if (jj_3R_46()) {
-    jj_scanpos = xsp;
-    if (jj_3R_47()) {
-    jj_scanpos = xsp;
-    if (jj_3R_48()) {
-    jj_scanpos = xsp;
-    if (jj_3R_49()) return true;
-    }
-    }
-    }
-    }
-    return false;
-  }
-
-  private boolean jj_3R_28() {
-    if (jj_scan_token(50)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_21() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_27()) {
-    jj_scanpos = xsp;
-    if (jj_3R_28()) return true;
-    }
-    return false;
-  }
-
-  private boolean jj_3R_27() {
-    if (jj_scan_token(49)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_30() {
-    if (jj_3R_38()) return true;
-    return false;
-  }
-
-  private boolean jj_3R_23() {
-    if (jj_scan_token(48)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_25() {
-    if (jj_3R_31()) return true;
-    return false;
-  }
-
-  private boolean jj_3R_13() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_22()) {
-    jj_scanpos = xsp;
-    if (jj_3R_23()) return true;
-    }
-    return false;
-  }
-
-  private boolean jj_3R_22() {
-    if (jj_scan_token(47)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_4() {
-    if (jj_scan_token(IDENTIFIER)) return true;
-    if (jj_scan_token(37)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_44() {
-    if (jj_scan_token(LNOT)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_43() {
-    if (jj_scan_token(NOT)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_42() {
-    if (jj_scan_token(39)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_35() {
-    if (jj_scan_token(46)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_41() {
-    if (jj_scan_token(38)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_36() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_41()) {
-    jj_scanpos = xsp;
-    if (jj_3R_42()) {
-    jj_scanpos = xsp;
-    if (jj_3R_43()) {
-    jj_scanpos = xsp;
-    if (jj_3R_44()) return true;
-    }
-    }
-    }
-    return false;
-  }
-
-  private boolean jj_3R_34() {
-    if (jj_scan_token(45)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_33() {
-    if (jj_scan_token(44)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_26() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_32()) {
-    jj_scanpos = xsp;
-    if (jj_3R_33()) {
-    jj_scanpos = xsp;
-    if (jj_3R_34()) {
-    jj_scanpos = xsp;
-    if (jj_3R_35()) return true;
-    }
-    }
-    }
-    return false;
-  }
-
-  private boolean jj_3R_32() {
-    if (jj_scan_token(43)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_29() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_36()) jj_scanpos = xsp;
-    if (jj_3R_37()) return true;
-    return false;
-  }
-
-  private boolean jj_3R_60() {
-    if (jj_scan_token(FLOATING_POINT_LITERAL)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_59() {
-    if (jj_scan_token(INTEGER_LITERAL)) return true;
-    return false;
-  }
-
   private boolean jj_3R_58() {
-    if (jj_scan_token(FALSE)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_20() {
-    if (jj_3R_26()) return true;
-    return false;
-  }
-
-  private boolean jj_3R_57() {
     if (jj_scan_token(TRUE)) return true;
     return false;
   }
 
-  private boolean jj_3R_54() {
+  private boolean jj_3R_55() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_57()) {
-    jj_scanpos = xsp;
     if (jj_3R_58()) {
     jj_scanpos = xsp;
     if (jj_3R_59()) {
     jj_scanpos = xsp;
-    if (jj_3R_60()) return true;
+    if (jj_3R_60()) {
+    jj_scanpos = xsp;
+    if (jj_3R_61()) {
+    jj_scanpos = xsp;
+    if (jj_3R_62()) {
+    jj_scanpos = xsp;
+    if (jj_3R_63()) return true;
     }
     }
     }
+    }
+    }
     return false;
   }
 
-  private boolean jj_3R_12() {
-    if (jj_3R_21()) return true;
-    return false;
-  }
-
-  private boolean jj_3R_24() {
-    if (jj_3R_29()) return true;
+  private boolean jj_3R_25() {
+    if (jj_3R_30()) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_30()) jj_scanpos = xsp;
-    return false;
-  }
-
-  private boolean jj_3R_55() {
-    if (jj_scan_token(SYNTH)) return true;
-    if (jj_scan_token(40)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_19() {
-    if (jj_3R_24()) return true;
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_25()) jj_scanpos = xsp;
-    return false;
-  }
-
-  private boolean jj_3_2() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_scan_token(10)) jj_scanpos = xsp;
-    if (jj_3R_5()) return true;
-    if (jj_scan_token(36)) return true;
-    return false;
-  }
-
-  private boolean jj_3_1() {
-    if (jj_3R_4()) return true;
-    return false;
-  }
-
-  private boolean jj_3R_9() {
-    if (jj_3R_13()) return true;
-    return false;
-  }
-
-  private boolean jj_3R_11() {
-    if (jj_3R_19()) return true;
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_20()) jj_scanpos = xsp;
-    return false;
-  }
-
-  private boolean jj_3R_7() {
-    if (jj_3R_10()) return true;
+    if (jj_3R_31()) jj_scanpos = xsp;
     return false;
   }
 
   private boolean jj_3R_56() {
+    if (jj_scan_token(SYNTH)) return true;
+    if (jj_scan_token(51)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_5() {
+    if (jj_scan_token(IDENTIFIER)) return true;
+    if (jj_scan_token(48)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_20() {
+    if (jj_3R_25()) return true;
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_26()) jj_scanpos = xsp;
+    return false;
+  }
+
+  private boolean jj_3R_57() {
     Token xsp;
     xsp = jj_scanpos;
     if (jj_scan_token(13)) {
@@ -1037,15 +751,137 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
     jj_scanpos = xsp;
     if (jj_scan_token(20)) {
     jj_scanpos = xsp;
-    if (jj_scan_token(21)) {
+    if (jj_scan_token(22)) {
     jj_scanpos = xsp;
-    if (jj_scan_token(22)) return true;
+    if (jj_scan_token(23)) {
+    jj_scanpos = xsp;
+    if (jj_scan_token(21)) return true;
     }
     }
     }
     }
     }
     }
+    }
+    }
+    }
+    }
+    return false;
+  }
+
+  private boolean jj_3R_21() {
+    if (jj_3R_27()) return true;
+    return false;
+  }
+
+  private boolean jj_3R_13() {
+    if (jj_3R_22()) return true;
+    return false;
+  }
+
+  private boolean jj_3R_19() {
+    if (jj_scan_token(XOR)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_18() {
+    if (jj_scan_token(LAND)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_17() {
+    if (jj_scan_token(LOR)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_16() {
+    if (jj_scan_token(AND)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_15() {
+    if (jj_scan_token(OR)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_11() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_15()) {
+    jj_scanpos = xsp;
+    if (jj_3R_16()) {
+    jj_scanpos = xsp;
+    if (jj_3R_17()) {
+    jj_scanpos = xsp;
+    if (jj_3R_18()) {
+    jj_scanpos = xsp;
+    if (jj_3R_19()) return true;
+    }
+    }
+    }
+    }
+    return false;
+  }
+
+  private boolean jj_3R_12() {
+    if (jj_3R_20()) return true;
+    Token xsp;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_21()) { jj_scanpos = xsp; break; }
+    }
+    return false;
+  }
+
+  private boolean jj_3_2() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_scan_token(10)) jj_scanpos = xsp;
+    if (jj_3R_6()) return true;
+    if (jj_scan_token(47)) return true;
+    return false;
+  }
+
+  private boolean jj_3_1() {
+    if (jj_3R_5()) return true;
+    return false;
+  }
+
+  private boolean jj_3R_54() {
+    if (jj_scan_token(65)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_10() {
+    if (jj_3R_14()) return true;
+    return false;
+  }
+
+  private boolean jj_3R_53() {
+    if (jj_scan_token(64)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_52() {
+    if (jj_scan_token(63)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_51() {
+    if (jj_scan_token(62)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_39() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_51()) {
+    jj_scanpos = xsp;
+    if (jj_3R_52()) {
+    jj_scanpos = xsp;
+    if (jj_3R_53()) {
+    jj_scanpos = xsp;
+    if (jj_3R_54()) return true;
     }
     }
     }
@@ -1054,24 +890,251 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
 
   private boolean jj_3R_8() {
     if (jj_3R_11()) return true;
+    return false;
+  }
+
+  private boolean jj_3R_41() {
+    if (jj_scan_token(50)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_40() {
+    if (jj_scan_token(49)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_32() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_12()) jj_scanpos = xsp;
+    if (jj_3R_40()) {
+    jj_scanpos = xsp;
+    if (jj_3R_41()) return true;
+    }
     return false;
   }
 
-  private boolean jj_3R_18() {
-    if (jj_scan_token(XOR)) return true;
+  private boolean jj_3R_50() {
+    if (jj_3R_57()) return true;
+    if (jj_scan_token(51)) return true;
     return false;
   }
 
-  private boolean jj_3R_17() {
-    if (jj_scan_token(LAND)) return true;
+  private boolean jj_3R_49() {
+    if (jj_3R_56()) return true;
     return false;
   }
 
-  private boolean jj_3R_16() {
-    if (jj_scan_token(LOR)) return true;
+  private boolean jj_3R_48() {
+    if (jj_scan_token(51)) return true;
+    if (jj_3R_6()) return true;
+    return false;
+  }
+
+  private boolean jj_3R_47() {
+    if (jj_scan_token(IDENTIFIER)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_46() {
+    if (jj_3R_55()) return true;
+    return false;
+  }
+
+  private boolean jj_3R_38() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_46()) {
+    jj_scanpos = xsp;
+    if (jj_3R_47()) {
+    jj_scanpos = xsp;
+    if (jj_3R_48()) {
+    jj_scanpos = xsp;
+    if (jj_3R_49()) {
+    jj_scanpos = xsp;
+    if (jj_3R_50()) return true;
+    }
+    }
+    }
+    }
+    return false;
+  }
+
+  private boolean jj_3R_9() {
+    if (jj_3R_12()) return true;
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_13()) jj_scanpos = xsp;
+    return false;
+  }
+
+  private boolean jj_3R_29() {
+    if (jj_scan_token(61)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_22() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_28()) {
+    jj_scanpos = xsp;
+    if (jj_3R_29()) return true;
+    }
+    return false;
+  }
+
+  private boolean jj_3R_28() {
+    if (jj_scan_token(60)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_24() {
+    if (jj_scan_token(59)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_31() {
+    if (jj_3R_39()) return true;
+    return false;
+  }
+
+  private boolean jj_3R_14() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_23()) {
+    jj_scanpos = xsp;
+    if (jj_3R_24()) return true;
+    }
+    return false;
+  }
+
+  private boolean jj_3R_23() {
+    if (jj_scan_token(58)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_7() {
+    if (jj_3R_9()) return true;
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_10()) jj_scanpos = xsp;
+    return false;
+  }
+
+  private boolean jj_3R_26() {
+    if (jj_3R_32()) return true;
+    return false;
+  }
+
+  private boolean jj_3R_36() {
+    if (jj_scan_token(57)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_45() {
+    if (jj_scan_token(LNOT)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_35() {
+    if (jj_scan_token(56)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_44() {
+    if (jj_scan_token(NOT)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_34() {
+    if (jj_scan_token(55)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_43() {
+    if (jj_scan_token(50)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_27() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_33()) {
+    jj_scanpos = xsp;
+    if (jj_3R_34()) {
+    jj_scanpos = xsp;
+    if (jj_3R_35()) {
+    jj_scanpos = xsp;
+    if (jj_3R_36()) return true;
+    }
+    }
+    }
+    return false;
+  }
+
+  private boolean jj_3R_33() {
+    if (jj_scan_token(54)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_6() {
+    if (jj_3R_7()) return true;
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_8()) jj_scanpos = xsp;
+    return false;
+  }
+
+  private boolean jj_3R_42() {
+    if (jj_scan_token(49)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_37() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_42()) {
+    jj_scanpos = xsp;
+    if (jj_3R_43()) {
+    jj_scanpos = xsp;
+    if (jj_3R_44()) {
+    jj_scanpos = xsp;
+    if (jj_3R_45()) return true;
+    }
+    }
+    }
+    return false;
+  }
+
+  private boolean jj_3R_63() {
+    if (jj_scan_token(STRING_LITERAL)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_62() {
+    if (jj_scan_token(FLOATING_POINT_LITERAL)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_30() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_37()) jj_scanpos = xsp;
+    if (jj_3R_38()) return true;
+    return false;
+  }
+
+  private boolean jj_3R_61() {
+    if (jj_scan_token(DELTA_TIME)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_60() {
+    if (jj_scan_token(INTEGER_LITERAL)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_59() {
+    if (jj_scan_token(FALSE)) return true;
     return false;
   }
 
@@ -1089,15 +1152,20 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
   final private int[] jj_la1 = new int[23];
   static private int[] jj_la1_0;
   static private int[] jj_la1_1;
+  static private int[] jj_la1_2;
   static {
       jj_la1_init_0();
       jj_la1_init_1();
+      jj_la1_init_2();
    }
    private static void jj_la1_init_0() {
-      jj_la1_0 = new int[] {0xe07ffc40,0x400,0x40,0x100,0x1d800000,0x0,0x0,0x0,0x0,0x0,0x60000000,0x60000000,0x807ff800,0x0,0x7fe000,0x0,0x1800,0x0,0x0,0x0,0x0,0x0,0x1d800000,};
+      jj_la1_0 = new int[] {0xc0fffc40,0x400,0x40,0x100,0x3b000000,0x0,0x0,0x0,0x0,0x0,0xc0000000,0xc0000000,0xfff800,0x0,0xffe000,0x0,0x1800,0x0,0x0,0x0,0x0,0x0,0x3b000000,};
    }
    private static void jj_la1_init_1() {
-      jj_la1_1 = new int[] {0x1c7,0x0,0x0,0x0,0x0,0x18000,0x60000,0x7800,0xc0,0x780000,0xc0,0xc0,0x107,0x400,0x0,0x400,0x6,0x7800,0x18000,0x60000,0xc0,0x780000,0x0,};
+      jj_la1_1 = new int[] {0xe401f,0x0,0x0,0x0,0x0,0xc000000,0x30000000,0x3c00000,0x60000,0xc0000000,0x60000,0x60000,0x8401f,0x200000,0x0,0x200000,0x401c,0x3c00000,0xc000000,0x30000000,0x60000,0xc0000000,0x0,};
+   }
+   private static void jj_la1_init_2() {
+      jj_la1_2 = new int[] {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x3,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x3,0x0,};
    }
   final private JJCalls[] jj_2_rtns = new JJCalls[2];
   private boolean jj_rescan = false;
@@ -1286,7 +1354,7 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
   /** Generate ParseException. */
   public ParseException generateParseException() {
     jj_expentries.clear();
-    boolean[] la1tokens = new boolean[55];
+    boolean[] la1tokens = new boolean[66];
     if (jj_kind >= 0) {
       la1tokens[jj_kind] = true;
       jj_kind = -1;
@@ -1300,10 +1368,13 @@ public class OLParser extends BaseOLParser implements OLParserConstants {
           if ((jj_la1_1[i] & (1<<j)) != 0) {
             la1tokens[32+j] = true;
           }
+          if ((jj_la1_2[i] & (1<<j)) != 0) {
+            la1tokens[64+j] = true;
+          }
         }
       }
     }
-    for (int i = 0; i < 55; i++) {
+    for (int i = 0; i < 66; i++) {
       if (la1tokens[i]) {
         jj_expentry = new int[1];
         jj_expentry[0] = i;

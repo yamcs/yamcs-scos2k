@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -18,18 +19,20 @@ import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.janino.SimpleCompiler;
 import org.yamcs.ConfigurationException;
 import org.yamcs.YConfiguration;
-import org.yamcs.scos2k.MibLoaderBits.CafRecord;
-import org.yamcs.scos2k.MibLoaderBits.CurRecord;
-import org.yamcs.scos2k.MibLoaderBits.DeducedParameter;
+import org.yamcs.scos2k.MonitoringData.CafRecord;
+import org.yamcs.scos2k.MonitoringData.CurRecord;
+import org.yamcs.scos2k.MonitoringData.DeducedParameter;
 import org.yamcs.scos2k.MibLoaderBits.MibLoadException;
-import org.yamcs.scos2k.MibLoaderBits.OcpRecord;
-import org.yamcs.scos2k.MibLoaderBits.ParameterTypeCache;
-import org.yamcs.scos2k.MibLoaderBits.PicRecord;
-import org.yamcs.scos2k.MibLoaderBits.PidRecord;
-import org.yamcs.scos2k.MibLoaderBits.VpdRecord;
+import org.yamcs.scos2k.MonitoringData.OcpRecord;
+import org.yamcs.scos2k.MonitoringData.PicRecord;
+import org.yamcs.scos2k.MonitoringData.PidRecord;
+import org.yamcs.scos2k.MonitoringData.TpcfRecord;
+import org.yamcs.scos2k.MonitoringData.VpdRecord;
+import org.yamcs.scos2k.MonitoringData.PcfRecord;
 import org.yamcs.scos2k.ol.OLAlgorithmEngine;
 import org.yamcs.scos2k.ol.OLParser;
 import org.yamcs.scos2k.ol.ParseException;
+import org.yamcs.scos2k.ol.TokenMgrError;
 import org.yamcs.xtce.util.DoubleRange;
 import org.yamcs.xtce.AbsoluteTimeParameterType;
 import org.yamcs.xtce.AggregateParameterType;
@@ -88,7 +91,6 @@ public abstract class TmMibLoader extends BaseMibLoader {
     Map<String, SplineCalibrator> splineCalibrators = new HashMap<>();
     Map<String, CafRecord> cafRecords = new HashMap<>();
     Map<String, List<CurRecord>> curRecords = new HashMap<>();
-    ParameterTypeCache ptypeCache = new ParameterTypeCache();
     Map<Long, PidRecord> pidRecords = new HashMap<>();
     Map<Long, List<PidRecord>> pidVpdRecords = new HashMap<>();
     // default size in bytes of the size tag for variable length strings and bytestrings
@@ -96,6 +98,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
     // where to extract the type and subType from the packet - in bytes
     int typeOffset = 0;
     int subTypeOffset = 0;
+    Map<String, PcfRecord> savedSynthenticParams = new HashMap<>();
 
     public TmMibLoader(YConfiguration config) throws ConfigurationException {
         super(config);
@@ -346,19 +349,25 @@ public abstract class TmMibLoader extends BaseMibLoader {
             // TODO setunit
             int ptc = getInt(line, IDX_PCF_PTC);
             int pfc = getInt(line, IDX_PCF_PFC);
-            MibParameter mp = new MibParameter(pname, line[IDX_PCF_DESCR], ptc, pfc);
-            mp.width = getInt(line, IDX_PCF_WIDTH, -1);
+            PcfRecord pcf = new PcfRecord(pname, line[IDX_PCF_DESCR], ptc, pfc);
+            pcf.width = getInt(line, IDX_PCF_WIDTH, -1);
             // TODO PCF valid
-            mp.pcfCateg = line[IDX_PCF_CATEG];
-            mp.pcfCurtx = getString(line, IDX_PCF_CURTX, null);
-            mp.pcfNatur = getString(line, IDX_PCF_NATUR, null);
-            mp.pcfInter = getString(line, IDX_PCF_INTER, null);
-            mp.vplb = getInt(line, IDX_PCF_VPLB, vblParamLengthBytes);
-            mp.pid = getInt(line, IDX_PCF_PID, -1);
-            mp.unit = getString(line, IDX_PCF_UNIT, null);
-            mp.uscon = "Y".equals(getString(line, IDX_PCF_USCON, null));
-            mp.parval = getString(line, IDX_PCF_PARVAL, null);
+            pcf.categ = line[IDX_PCF_CATEG];
+            pcf.curtx = getString(line, IDX_PCF_CURTX, null);
+            pcf.natur = getString(line, IDX_PCF_NATUR, null);
+            pcf.inter = getString(line, IDX_PCF_INTER, null);
+            pcf.vplb = getInt(line, IDX_PCF_VPLB, vblParamLengthBytes);
+            pcf.pid = getInt(line, IDX_PCF_PID, -1);
+            pcf.unit = getString(line, IDX_PCF_UNIT, null);
+            pcf.uscon = "Y".equals(getString(line, IDX_PCF_USCON, null));
+            pcf.parval = getString(line, IDX_PCF_PARVAL, null);
+            pcf.related = getString(line, IDX_PCF_RELATED, null);
+            MibParameter mp = new MibParameter(pcf);
 
+            if (ptc == 13) {
+                savedSynthenticParams.put(pname, pcf);
+                continue;
+            }
             if (ptc == 11) {
                 if (!hasColumn(line, IDX_PCF_RELATED)) {
                     throw new MibLoadException(ctx, "PCF_RELATED is not set for deduced parameter '" + pname + "'");
@@ -366,23 +375,35 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 DeducedParameter p = new DeducedParameter(pname, line[IDX_PCF_RELATED]);
                 deducedParameters.put(pname, p);
             } else {
-                boolean hasContextCalib = curRecords.containsKey(mp.name);
+                boolean hasContextCalib = curRecords.containsKey(pcf.name);
                 ParameterType ptype;
                 if (!hasContextCalib) {
-                    ptype = ptypeCache.get(mp);
+                    ptype = spaceSystem.getParameterType(mp.getTypeName());
                     if (ptype == null) {
-                        ptype = createParameterType(mp);
-                        ptypeCache.add(mp, ptype);
+                        var ptypeb = createParameterType(mp);
+                        ptypeb.setName(mp.getTypeName());
+                        ptype = ptypeb.build();
+                        spaceSystem.addParameterType(ptype);
                     }
                 } else {
-                    // we don't cache parameter types that have context calibrators
-                    // because they the calibrators are different for each parameter
-                    // probably they could be deduplicated
-                    ptype = createParameterType(mp);
-                    if (ptype == null) {
-                        log.warn("No parameter type available for {}, ignoring parameter", mp.name);
+                    // do not deduplicate parameter types with contextual calibrators
+                    var ptypeb = createParameterType(mp);
+
+                    if (ptypeb == null) {
+                        log.warn("No parameter type available for {}, ignoring parameter", pcf.name);
                         continue;
                     }
+                    String name = mp.getTypeName();
+                    int idx = 0;
+                    while (true) {
+                        if (spaceSystem.getParameterType(name + "_" + idx) == null) {
+                            break;
+                        }
+                        idx++;
+                    }
+                    ptypeb.setName(name + "_" + idx);
+                    ptype = ptypeb.build();
+                    spaceSystem.addParameterType(ptype);
                 }
                 mp.ptype = ptype;
             }
@@ -393,7 +414,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
     private void loadSynthetic() throws DatabaseLoadException {
         for (MibParameter mp : parameters.values()) {
             if (mp.isSynthetic()) {
-                File f = new File(path + "/synthetic/" + mp.name);
+                File f = new File(path + "/synthetic/" + mp.name());
                 if (!f.exists()) {
                     throw new DatabaseLoadException("Cannot find synthetic file " + f);
                 }
@@ -405,24 +426,25 @@ public abstract class TmMibLoader extends BaseMibLoader {
     private void loadSynthetic(MibParameter mp, File f) {
         String code = null;
         try {
-            Parameter outpara = spaceSystem.getParameter(mp.name);
+            Parameter outpara = spaceSystem.getParameter(mp.name());
             if (outpara == null) {
-                throw new MibLoadException(ctx, "Cannot find synthetic parameter '" + mp.name + " in the XTCE db");
+                throw new MibLoadException(ctx, "Cannot find synthetic parameter '" + mp.name() + " in the XTCE db");
             }
             log.debug("Parsing and compiling {}", f);
             String olCode = new String(Files.readAllBytes(f.toPath()), StandardCharsets.ISO_8859_1);
             OLParser parser = new OLParser(new StringReader(olCode));
-            code = parser.generateCodeStandalone(mp.name, name -> {
+            code = parser.generateCodeStandalone(mp.name(), name -> {
                 MibParameter mibp = parameters.get(name);
                 if (mibp == null) {
                     throw new MibLoadException(
-                            "Syntentic parameter " + mp.name + " refers to unexisting parameter " + name);
+                            "Syntentic parameter " + mp.name() + " refers to unexisting parameter " + name);
                 }
                 return parameters.get(name).ptype;
             });
+            log.debug("For{} got code:\n {}", mp.name(), code);
             SimpleCompiler compiler = new SimpleCompiler();
             compiler.cook(code);
-            CustomAlgorithm algo = new CustomAlgorithm(mp.name);
+            CustomAlgorithm algo = new CustomAlgorithm(mp.name());
             algo.setLanguage(OLAlgorithmEngine.LANGUAGE_NAME);
             algo.setAlgorithmText(olCode);
             TriggerSetType tst = new TriggerSetType();
@@ -442,7 +464,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             algo.setTriggerSet(tst);
             algo.setOutputList(Arrays.asList(new OutputParameter(outpara)));
             spaceSystem.addAlgorithm(algo);
-        } catch (ParseException e) {
+        } catch (ParseException | TokenMgrError e) {
             throw new DatabaseLoadException("Failed to parse the OL file " + f, e);
         } catch (IOException e) {
             throw new DatabaseLoadException(e);
@@ -459,20 +481,20 @@ public abstract class TmMibLoader extends BaseMibLoader {
         loadLgf();
         loadPcf();
         for (MibParameter mp : parameters.values()) {
-            if (mp.ptc == 11) { // deduced
+            if (mp.pcf.ptc == 11) { // deduced
                 continue;
             }
-            String pname = mp.name;
+            String pname = mp.name();
             // TODO PCF valid
             Parameter p = new Parameter(pname);
-            p.setShortDescription(mp.descr);
+            p.setShortDescription(mp.pcf.descr);
             p.setParameterType(mp.ptype);
-            if (mp.pid != -1) {
-                p.addAlias(OB_PID_NAMESPACE, Integer.toString(mp.pid));
+            if (mp.pcf.pid != -1) {
+                p.addAlias(OB_PID_NAMESPACE, Integer.toString(mp.pcf.pid));
             }
-            //if(spaceSystem.getParameterType(mp.ptype.getName()) == null) {
-             //   spaceSystem.addParameterType(mp.ptype);    
-            //}            
+            // if(spaceSystem.getParameterType(mp.ptype.getName()) == null) {
+            // spaceSystem.addParameterType(mp.ptype);
+            // }
             spaceSystem.addParameter(p);
         }
         loadSynthetic();
@@ -506,57 +528,56 @@ public abstract class TmMibLoader extends BaseMibLoader {
 
     }
 
-    private ParameterType createParameterType(MibParameter mp) {
-        String pcfCateg = mp.pcfCateg;
+    private ParameterType.Builder<?> createParameterType(MibParameter mp) {
+        String pcfCateg = mp.pcf.categ;
         ParameterType.Builder<?> ptypeb;
         if (pcfCateg.equals("N")) {
             ptypeb = createParameterTypeNcateg(mp);
         } else if (pcfCateg.equals("S")) {
-            ptypeb = createParameterTypeScateg(mp);
+            ptypeb = createParameterTypeScateg(mp.pcf);
         } else if (pcfCateg.equals("T")) {
-            ptypeb = createParameterTypeTcateg(mp);
+            ptypeb = createParameterTypeTcateg(mp.pcf);
         } else {
             throw new MibLoadException(ctx, "Invalid value '" + pcfCateg + "' for column PCF_CATEG");
         }
 
-        if (mp.unit != null) {
-            ((BaseDataType.Builder<?>) ptypeb).addUnit(new UnitType(mp.unit));
+        if (mp.pcf.unit != null) {
+            ((BaseDataType.Builder<?>) ptypeb).addUnit(new UnitType(mp.pcf.unit));
         }
 
-        if ("C".equals(mp.pcfNatur) && mp.parval != null) {
+        if ("C".equals(mp.pcf.natur) && mp.pcf.parval != null) {
             try {
-                ptypeb.setInitialValue(mp.parval);
+                ptypeb.setInitialValue(mp.pcf.parval);
             } catch (IllegalArgumentException e) {
                 throw new MibLoadException(null,
-                        "Cannot set default value for parameter '" + mp.name + "': " + e.getMessage());
+                        "Cannot set default value for parameter '" + mp.name() + "': " + e.getMessage());
             }
         }
-        var ptype = ptypeb.build();
-        spaceSystem.addParameterType(ptype);
-        return ptype;
+
+        return ptypeb;
     }
 
     private ParameterType.Builder<?> createParameterTypeNcateg(MibParameter mp) {
-        int ptc = mp.ptc;
-        int pfc = mp.pfc;
-        DataEncoding.Builder<?> encoding = getDataEncoding(ctx, ptc, pfc, mp.vplb);
+        int ptc = mp.ptc();
+        int pfc = mp.pfc();
+        DataEncoding.Builder<?> encoding = getDataEncoding(ctx, ptc, pfc, mp.pcf.vplb);
 
-        boolean hasCalibrator = mp.pcfCurtx != null || curRecords.containsKey(mp.name);
+        boolean hasCalibrator = mp.pcf.curtx != null || curRecords.containsKey(mp.name());
         if (ptc == 1) {// boolean
             if (hasCalibrator) {
                 throw new MibLoadException(ctx, "Calibration for boolean parameters not supported");
             }
-            BooleanParameterType.Builder ptype = new BooleanParameterType.Builder().setName("bool");
+            BooleanParameterType.Builder ptype = new BooleanParameterType.Builder();
             ptype.setEncoding(encoding);
             return ptype;
         } else if (ptc < 6) {// numeric parameters
             if (!hasCalibrator) {
-                return (ParameterType.Builder<?>) getDataType(encoding, "ptc_" + ptc + "_pfc_" + pfc, true);
+                return (ParameterType.Builder<?>) getDataType(encoding, mp.getTypeName(), true);
             } else {
                 mp.hasCalibrator = true;
                 ParameterType.Builder<?> ptype = getCalibratedParameterType(mp);
                 ptype.setEncoding(encoding);
-                Calibrator calib = getNumericCalibrator(mp.pcfCurtx);
+                Calibrator calib = getNumericCalibrator(mp.pcf.curtx);
                 if (calib != null) {
                     if (encoding instanceof NumericDataEncoding.Builder) {
                         ((NumericDataEncoding.Builder<?>) encoding).setDefaultCalibrator(calib);
@@ -573,17 +594,16 @@ public abstract class TmMibLoader extends BaseMibLoader {
 
             if ((ptc == 6) || (ptc == 7)) {
                 BinaryParameterType.Builder ptype = new BinaryParameterType.Builder()
-                        .setName("binary_" + ptc + "_" + pfc)
                         .setEncoding(encoding);
                 return ptype;
             } else if (ptc == 8) {
                 StringParameterType.Builder ptype = new StringParameterType.Builder()
-                        .setName("string_" + ptc + "_" + pfc)
+                        .setName(mp.getTypeName())
                         .setEncoding(encoding);
                 return ptype;
             } else if (ptc == 9) {
                 AbsoluteTimeParameterType.Builder ptype = new AbsoluteTimeParameterType.Builder()
-                        .setName("abstime_" + ptc + "_" + pfc);
+                        .setName(mp.getTypeName());
                 ReferenceTime rt = new ReferenceTime(timeEpoch);
                 ptype.setReferenceTime(rt);
                 ptype.setEncoding(encoding);
@@ -591,22 +611,22 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 return ptype;
             } else if (ptc == 10) {
                 StringParameterType.Builder ptype = new StringParameterType.Builder()
-                        .setName("reltime_" + ptc + "_" + pfc);
+                        .setName(mp.getTypeName());
                 ptype.setEncoding(encoding);
                 return ptype;
             } else if (ptc == 12) {
                 // (pfc, ptc) = (12, 1) is used to embed TC packets inside TM or TC packets.
                 // For example PUS(11,10) time-based schedule detail report
-                // (pfc, ptc) = (12, 0) is used to embed TM packets inside TM or TC packets. 
+                // (pfc, ptc) = (12, 0) is used to embed TM packets inside TM or TC packets.
                 // This does not seem used in PUS however we support it
                 if (pfc != 0 && pfc != 1) {
                     throw new MibLoadException(ctx, String.format("Invalid combination (PTC, PFC):"
-                            + " (%d, %d)", mp.ptc, mp.pfc));
+                            + " (%d, %d)", ptc, pfc));
                 }
 
                 AggregateParameterType.Builder aggrb = new AggregateParameterType.Builder();
-                aggrb.setName("mib_ptype_ptc_"+ptc+"pcf_"+mp.pfc);
-                MibLoaderBits.addPtc12Members(spaceSystem, aggrb, mp.pfc);
+                aggrb.setName(mp.getTypeName());
+                MibLoaderBits.addPtc12Members(spaceSystem, aggrb, mp.pfc());
                 return aggrb;
             } else {
                 throw new MibLoadException(ctx, "Unsupported (PTC, PFC): (" + ptc + "," + pfc + ")");
@@ -615,9 +635,9 @@ public abstract class TmMibLoader extends BaseMibLoader {
     }
 
     private ParameterType.Builder<?> getCalibratedParameterType(MibParameter mp) {
-        CafRecord caf = cafRecords.get(mp.pcfCurtx);
+        CafRecord caf = cafRecords.get(mp.pcf.curtx);
 
-        List<CurRecord> l = curRecords.get(mp.name);
+        List<CurRecord> l = curRecords.get(mp.name());
 
         if (caf == null && l != null) {
             CurRecord cur = l.get(0);
@@ -625,16 +645,15 @@ public abstract class TmMibLoader extends BaseMibLoader {
         }
 
         if (caf == null) {
-            return new FloatParameterType.Builder().setName(mp.name);
+            return new FloatParameterType.Builder();
         }
 
         if ("R".equals(caf.engfmt)) {
-            return new FloatParameterType.Builder().setName(mp.name);
+            return new FloatParameterType.Builder();
         } else if ("I".equals(caf.engfmt)) {
-            return new IntegerParameterType.Builder().setName(mp.name);
+            return new IntegerParameterType.Builder();
         } else if ("U".equals(caf.engfmt)) {
             IntegerParameterType.Builder ptype = new IntegerParameterType.Builder()
-                    .setName(mp.name)
                     .setSigned(false);
             return ptype;
         } else {
@@ -653,28 +672,43 @@ public abstract class TmMibLoader extends BaseMibLoader {
         return calib;
     }
 
-    private ParameterType.Builder<?> createParameterTypeScateg(MibParameter mp) {
-        int ptc = mp.ptc;
-        int pfc = mp.pfc;
-        String pcfCurtx = mp.pcfCurtx;
+    private ParameterType.Builder<?> createParameterTypeScateg(PcfRecord pcf) {
+        int ptc = pcf.ptc;
+        int pfc = pcf.pfc;
+        String pcfCurtx = pcf.curtx;
+        if (pcfCurtx == null) {
+            error(new MibLoadException(ctx,
+                    "PCF_CURTX not defined for parameter " + pcf.name + " with PCF_CATEG=" + pcf.categ));
+            DataEncoding.Builder<?> encoding = getDataEncoding(ctx, ptc, pfc, -1);
+            IntegerParameterType.Builder ptype = new IntegerParameterType.Builder()
+                    .setSigned(ptc == 4)
+                    .setEncoding(encoding);
+            return ptype;
+        }
+
         List<ValueEnumeration> enumList = enumerations.get(pcfCurtx);
         List<ValueEnumerationRange> enumRangeList = enumerationRanges.get(pcfCurtx);
         DataEncoding.Builder<?> encoding = getDataEncoding(ctx, ptc, pfc, -1);
 
         if (enumList == null && enumRangeList == null) {
-            if (curRecords.containsKey(mp.name)) {
-                log.warn("Parameter {}: textual context calibrators not supported, using integer", mp.name);
+            if (curRecords.containsKey(pcf.name)) {
+                log.warn("Parameter {}: textual context calibrators not supported, using integer", pcf.name);
                 IntegerParameterType.Builder ptype = new IntegerParameterType.Builder()
-                        .setName("int_" + ptc + "_" + pfc)
                         .setSigned(ptc == 4)
                         .setEncoding(encoding);
                 return ptype;
             } else {
-                throw new MibLoadException(ctx,
-                        "Textual calibration for parameter " + mp.name + " '" + pcfCurtx + "' not found in TXF file");
+                error(new MibLoadException(ctx,
+                        "Textual calibration for parameter " + pcf.name + " '" + pcfCurtx
+                                + "' not found in TXF file"));
+
+                IntegerParameterType.Builder ptype = new IntegerParameterType.Builder()
+                        .setSigned(ptc == 4)
+                        .setEncoding(encoding);
+                return ptype;
             }
         }
-        EnumeratedParameterType.Builder ptype = new EnumeratedParameterType.Builder().setName(pcfCurtx);
+        EnumeratedParameterType.Builder ptype = new EnumeratedParameterType.Builder();
         if (enumList != null) {
             for (ValueEnumeration ve : enumList) {
                 ptype.addEnumerationValue(ve);
@@ -690,18 +724,18 @@ public abstract class TmMibLoader extends BaseMibLoader {
 
     }
 
-    private ParameterType.Builder<?> createParameterTypeTcateg(MibParameter mp) {
-        int ptc = mp.ptc;
-        int pfc = mp.pfc;
+    private ParameterType.Builder<?> createParameterTypeTcateg(PcfRecord pcf) {
+        int ptc = pcf.ptc;
+        int pfc = pcf.pfc;
         if (ptc != 8) {
             throw new MibLoadException(ctx, String.format("Invalid combination (PTC, PFC, PFC_CATEG):"
                     + " (%d, %d, T)", ptc, pfc));
         }
-        StringParameterType.Builder ptype = new StringParameterType.Builder().setName("txt" + ptc + "_" + pfc);
-        DataEncoding.Builder<?> encoding = getDataEncoding(ctx, ptc, pfc, mp.vplb);
+        StringParameterType.Builder ptype = new StringParameterType.Builder();
+        DataEncoding.Builder<?> encoding = getDataEncoding(ctx, ptc, pfc, pcf.vplb);
         ptype.setEncoding(encoding);
-        if (mp.parval != null) {
-            ptype.setInitialValue(mp.parval);
+        if (pcf.parval != null) {
+            ptype.setInitialValue(pcf.parval);
         }
         return ptype;
     }
@@ -729,7 +763,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             if (mp == null) {
                 throw new MibLoadException(ctx, "OCF record without a corresponding PCF for parameter '" + pname + "'");
             }
-            if (mp.uscon && nbool == 1) {
+            if (mp.pcf.uscon && nbool == 1) {
                 continue; // status consistency check TODO
             }
 
@@ -739,17 +773,24 @@ public abstract class TmMibLoader extends BaseMibLoader {
             }
 
             if ("R".equals(codin) || "I".equals(codin)) {
-                if (!(mp.ptype instanceof NumericParameterType)) {
+                if (mp.ptype instanceof EnumeratedParameterType && "U".equals(inter)) {
+                    addEnumeratedAlarm(mp, l, true);
+                } else if (mp.ptype instanceof BooleanParameterType) {
+                    log.warn("Alarms on boolean parameter {} not supported", mp.name());
+                    continue;
+                } else if (mp.ptype instanceof NumericParameterType) {
+                    addNumericAlarm(mp, l, nbchck);
+                } else {
                     throw new MibLoadException(ctx, pname + ": OCF_CODIN = " + codin
-                            + " cannot be used for a parameter of type " + mp.ptype.getClass());
+                            + " cannot be used for a parameter of type " + mp.ptype.getClass()
+                            + "(pcf: " + mp.pcf + ")");
                 }
-                addNumericAlarm(mp, l, nbchck);
             } else if ("A".equals(codin)) {
                 if (!(mp.ptype instanceof EnumeratedParameterType)) {
                     throw new MibLoadException(ctx,
                             pname + ": OCF_CODIN = A cannot be used for a parameter of type " + mp.ptype.getClass());
                 }
-                addEnumeratedAlarm(mp, l);
+                addEnumeratedAlarm(mp, l, false);
             } else {
                 throw new MibLoadException(ctx,
                         pname + ": illegal value " + codin + " for OCF_CODIN (allowed are: R, A and I");
@@ -757,8 +798,8 @@ public abstract class TmMibLoader extends BaseMibLoader {
         }
     }
 
-    private void addEnumeratedAlarm(MibParameter mp, List<OcpRecord> l) {
-        Parameter param = spaceSystem.getParameter(mp.name);
+    private void addEnumeratedAlarm(MibParameter mp, List<OcpRecord> l, boolean raw) {
+        Parameter param = spaceSystem.getParameter(mp.name());
         EnumeratedParameterType.Builder ptype = (EnumeratedParameterType.Builder) param.getParameterType().toBuilder();
 
         OcpRecord prev = null;
@@ -766,7 +807,9 @@ public abstract class TmMibLoader extends BaseMibLoader {
 
         for (OcpRecord r : l) {
             if ("D".equals(r.type) || "E".equals(r.type) || "C".equals(r.type)) {
-                continue; // ignore delta checks, event generation or status consistency TODO
+                // ignore delta checks, event generation or status consistency TODO
+                log.warn("OCP record {} not supported for {}", r, mp.name());
+                continue;
             }
 
             if (r.rlchk != null) { // context alarm
@@ -786,32 +829,66 @@ public abstract class TmMibLoader extends BaseMibLoader {
             } else {
                 contextMatch = null;
             }
-
+            
             AlarmLevels level = "S".equals(r.type) ? AlarmLevels.WARNING : AlarmLevels.CRITICAL;
-            ptype.addAlarm(contextMatch, r.lvalu, level);
+
+            if (raw) {
+                long rv;
+                try {
+                    rv = Long.parseLong(r.lvalu);
+                } catch (IllegalArgumentException e) {
+                    throw new MibLoadException(ctx,
+                            "Failed to parse '" + r.lvalu + "' into a number from OCP record "+r);
+                }
+                String label =findEnumeration(ptype, rv);
+                if (label == null) {
+                    log.warn("Cannot find label for raw value {} for enumerated parameter type associated to {}: {}", rv, mp.name(), ptype);
+                } else {
+                    ptype.addAlarm(contextMatch, label, level);
+                }
+            } else {
+                ptype.addAlarm(contextMatch, r.lvalu, level);
+            }
             prev = r;
         }
         param.setParameterType(ptype.build());
     }
 
+    private String findEnumeration(EnumeratedParameterType.Builder ptype, long rv) {
+        for (ValueEnumeration ve : ptype.getValueEnumerationList()) {
+            if (ve.getValue() == rv) {
+                return ve.getLabel();
+            }
+        }
+
+        for (ValueEnumerationRange range : ptype.getValueEnumerationRangeList()) {
+            if (range.isValueInRange(rv)) {
+                return range.getLabel();
+            }
+        }
+
+        return null;
+    }
     private void addNumericAlarm(MibParameter mp, List<OcpRecord> l, int minViolations) {
-        Parameter param = spaceSystem.getParameter(mp.name);
+        Parameter param = spaceSystem.getParameter(mp.name());
         NumericParameterType.Builder<?> ptype = (NumericParameterType.Builder<?>) param.getParameterType().toBuilder();
 
         OcpRecord prev = null;
         MatchCriteria contextMatch = null;
         for (OcpRecord r : l) {
             if ("D".equals(r.type) || "E".equals(r.type) || "C".equals(r.type)) {
-                continue; // ignore delta checks, event generation or status consistency TODO
+                // ignore delta checks, event generation or status consistency TODO
+                log.warn("OCP record {} not supported for {}", r, mp.name());
+                continue;
             }
             DoubleRange range = null;
             try {
-                double low = Double.parseDouble(r.lvalu);
-                double high = Double.parseDouble(r.hvalu);
+                double low = r.lvalu == null ? Double.NaN : Double.parseDouble(r.lvalu);
+                double high = r.hvalu == null ? Double.NaN : Double.parseDouble(r.hvalu);
                 range = new DoubleRange(low, high);
             } catch (IllegalArgumentException e) {
                 throw new MibLoadException(ctx, "Cannot parse low/high " + r.lvalu + "/" + r.hvalu
-                        + " values from ocp for parameter " + mp.name);
+                        + " values from ocp for parameter " + mp.name());
             }
 
             if (r.rlchk != null) { // context alarm
@@ -823,7 +900,8 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 if (contextMatch == null) {
                     Parameter paraRef = spaceSystem.getParameter(r.rlchk);
                     if (paraRef == null) {
-                        throw new MibLoadException(ctx, "Unknown parameter '" + r.rlchk + " referenced in the ocp");
+                        error(new MibLoadException(ctx, "Unknown parameter '" + r.rlchk + " referenced in the ocp"));
+                        continue;
                     }
                     contextMatch = new Comparison(new ParameterInstanceRef(paraRef, false), Long.toString(r.valpar),
                             OperatorType.EQUALITY);
@@ -926,7 +1004,10 @@ public abstract class TmMibLoader extends BaseMibLoader {
         String[] line;
         while ((line = nextLine()) != null) {
             checkMandatory(line, IDX_PID_TYPE, IDX_PID_STYPE, IDX_PID_APID, IDX_PID_SPID);
-            if (!"Y".equals(line[IDX_PID_VALID])) {
+            if ("N".equals(line[IDX_PID_VALID])) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Skipping PID line because VALID=N: {}", Arrays.toString(line));
+                }
                 continue;
             }
             PidRecord pid = new PidRecord();
@@ -988,19 +1069,29 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 Parameter pi1 = null;
                 Parameter pi2 = null;
                 if (pic.pi1Offset >= 0) {
-                    IntegerParameterType pi1type = getIntegerParameterType(spaceSystem, pic.pi1Width);
-                    pi1 = new Parameter(name + "_pi1");
-                    pi1.setParameterType(pi1type);
-                    spaceSystem.addParameter(pi1);                    
-                    seq.addEntry(new ParameterEntry(8 * pic.pi1Offset, ReferenceLocationType.CONTAINER_START, pi1));
+                    if (pic.pi1Width > 0) {
+                        IntegerParameterType pi1type = getIntegerParameterType(spaceSystem, pic.pi1Width);
+                        pi1 = new Parameter(name + "_pi1");
+                        pi1.setParameterType(pi1type);
+                        spaceSystem.addParameter(pi1);
+                        seq.addEntry(new ParameterEntry(8 * pic.pi1Offset, ReferenceLocationType.CONTAINER_START, pi1));
+                    } else {
+                        error(new MibLoadException(ctx,
+                                "Found PIC record with p1_offset >= 0 and p1_width <= 0: " + pic));
+                    }
                 }
                 if (pic.pi2Offset >= 0) {
-                    IntegerParameterType pi2type = getIntegerParameterType(spaceSystem, pic.pi2Width);
-                    pi2 = new Parameter(name + "_pi2");
-                    pi2.setParameterType(pi2type);
-                    spaceSystem.addParameter(pi2);
-                    seq.addEntry(
-                            new ParameterEntry(8 * pic.pi2Offset, ReferenceLocationType.CONTAINER_START, pi2));
+                    if (pic.pi1Width > 0) {
+                        IntegerParameterType pi2type = getIntegerParameterType(spaceSystem, pic.pi2Width);
+                        pi2 = new Parameter(name + "_pi2");
+                        pi2.setParameterType(pi2type);
+                        spaceSystem.addParameter(pi2);
+                        seq.addEntry(
+                                new ParameterEntry(8 * pic.pi2Offset, ReferenceLocationType.CONTAINER_START, pi2));
+                    } else {
+                        error(new MibLoadException(ctx,
+                                "Found PIC record with p2_offset >= 0 and p2_width <= 0: " + pic));
+                    }
                 }
 
                 for (PidRecord pid : l) {
@@ -1106,6 +1197,9 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 ref.setParameter(spaceSystem.getParameter(dp.refPname));
                 entry = new IndirectParameterRefEntry(locationInBits, ReferenceLocationType.CONTAINER_START, ref,
                         OB_PID_NAMESPACE);
+            } else if (savedSynthenticParams.containsKey(pname)) {
+                log.debug("Ignoring saved synthetic param {}", pname);
+                continue;
             } else {
                 Parameter p = spaceSystem.getParameter(pname);
                 if (p == null) {
@@ -1148,6 +1242,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
         switchTo("vpd");
         String[] line;
         Map<Long, List<VpdRecord>> records = new HashMap<>();
+        HashSet<Long> skipped = new HashSet<>();
         while ((line = nextLine()) != null) {
             checkMandatory(line, IDX_VPD_TPSD, IDX_VPD_POS, IDX_VPD_NAME);
             VpdRecord vpd = new VpdRecord();
@@ -1161,7 +1256,11 @@ public abstract class TmMibLoader extends BaseMibLoader {
             vpd.offset = getInt(line, IDX_VPD_OFFSET, 0);
 
             if (!pidVpdRecords.containsKey(tpsd)) {
-                throw new MibLoadException(ctx, "VPD_TPSD=" + tpsd + " has no correspondence in the pid table");
+                if (!skipped.contains(tpsd)) {
+                    skipped.add(tpsd);
+                    error(new MibLoadException(ctx, "VPD_TPSD=" + tpsd + " has no correspondence in the pid table"));
+                }
+                continue;
             }
 
             if (spaceSystem.getParameter(vpd.name) == null && !deducedParameters.containsKey(vpd.name)) {

@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.yamcs.xtce.AbsoluteTimeParameterType;
 import org.yamcs.xtce.BaseDataType;
@@ -23,6 +25,8 @@ import org.yamcs.xtce.NumericDataEncoding;
 import org.yamcs.xtce.ParameterType;
 import org.yamcs.xtce.StringParameterType;
 import org.yamcs.mdb.DataEncodingDecoder;
+import org.yamcs.utils.TaiUtcConverter;
+import org.yamcs.utils.TimeEncoding;
 
 /**
  * Transforms OL Formulas into java classes.
@@ -40,6 +44,10 @@ public abstract class BaseOLParser {
 
     private Function<String, ParameterType> parameterTypes;
     private String name;
+
+    // Some GAIA scripts were giving errors if this was not done
+    //
+    private boolean defaultValuesForLocalVariables = true;
 
     /**
      * Generates the import statement required before the class definition
@@ -62,9 +70,8 @@ public abstract class BaseOLParser {
      * @param name
      *            - the name of the output parameter
      * @param inputParameterTypes
-     *            - function that gives the types for the input parameters;
-     *            the function should return null if the parameter is unknown (a ParseException will be thrown in this
-     *            case).
+     *            - function that gives the types for the input parameters; the function should return null if the
+     *            parameter is unknown (a ParseException will be thrown in this case).
      * @return a piece of java code ready to be compiled
      * @throws ParseException
      */
@@ -114,7 +121,11 @@ public abstract class BaseOLParser {
         }
 
         for (Variable v : localVariables.values()) {
-            sb.append("        ").append(v.type.javaType()).append(" ").append(v.name).append(";\n");
+            sb.append("        ").append(v.type.javaType()).append(" ").append(v.name);
+            if (defaultValuesForLocalVariables) {
+                sb.append("=0");
+            }
+            sb.append(";\n");
         }
         sb.append(body);
         sb.append("    }\n}");
@@ -161,13 +172,12 @@ public abstract class BaseOLParser {
         } else { // parameter
             int idx = id.indexOf('.');
             String paraName;
-            String paraProp;
+            ParameterView paraView = null;
             if (idx > 0) {
                 paraName = id.substring(0, idx);
-                paraProp = id.substring(idx + 1);
+                paraView = ParameterView.parse(id.substring(idx + 1));
             } else {
                 paraName = id;
-                paraProp = "eng";
             }
             if (paraName.startsWith("$")) {
                 paraName = paraName.substring(1);
@@ -178,7 +188,16 @@ public abstract class BaseOLParser {
                 throw new ParseException("Unknonw parameter '" + paraName + "'");
             }
             addInputParam(paraName);
-            if ("eng".equals(paraProp)) {
+
+            if(paraView == null) {
+                if(ptype instanceof EnumeratedParameterType) {
+                    return new ExpressionCode(Type.ENUM, paraName);
+                } else {
+                    paraView = ParameterView.ENG;
+                }
+            }
+
+            if (paraView == ParameterView.ENG) {
                 String t = getEngType(ptype).name();
                 String v = paraName + ".getEngValue().get" + t.substring(0, 1) + t.substring(1).toLowerCase()
                         + "Value()";
@@ -188,10 +207,12 @@ public abstract class BaseOLParser {
                     return new ExpressionCode(Type.DOUBLE, v);
                 } else if (ptype instanceof BooleanParameterType) {
                     return new ExpressionCode(Type.BOOLEAN, v);
+                } else if (ptype instanceof EnumeratedParameterType) {
+                    return new ExpressionCode(Type.STRING, v);
                 } else {
                     throw new ParseException("Unsupported parameter of type " + ptype);
                 }
-            } else if ("raw".equals(paraProp)) {
+            } else if (paraView == ParameterView.RAW) {
                 DataEncoding encoding = ((BaseDataType) ptype).getEncoding();
                 String t = DataEncodingDecoder.getRawType(encoding).name();
                 String v = paraName + ".getRawValue().get" + t.substring(0, 1) + t.substring(1).toLowerCase()
@@ -205,10 +226,10 @@ public abstract class BaseOLParser {
                 } else {
                     throw new ParseException("Unsupported parameter of type " + ptype);
                 }
-            } else if ("time".equals(paraProp)) {
+            } else if (paraView == ParameterView.TIME) {
                 return new ExpressionCode(Type.DOUBLE, "OLFunction.getObTime(" + paraName + ")");
             } else {
-                throw new ParseException("Unknown property '" + paraProp + "' for parameter '" + paraName + "'");
+                throw new IllegalStateException("Unknown parameter view " + paraView);
             }
         }
     }
@@ -252,6 +273,84 @@ public abstract class BaseOLParser {
 
     public List<String> getInputParameters() {
         return inputParams;
+    }
+
+    /**
+     * Parses the format ddd.hh.mm.ss[mmm] into milliseconds
+     * 
+     */
+    public static long parseDeltaTime(String timeString) throws ParseException {
+        String regex = "(\\d{3})\\.(\\d{2})\\.(\\d{2})\\.(\\d{2})(:?.(\\d{3}))?";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(timeString);
+
+        if (!matcher.matches()) {
+            throw new ParseException("Cannot parse delta time '" + timeString + "'");
+        }
+
+        int days = Integer.parseInt(matcher.group(1));
+        int hours = Integer.parseInt(matcher.group(2));
+        int minutes = Integer.parseInt(matcher.group(3));
+        int seconds = Integer.parseInt(matcher.group(4));
+        
+        int millis = matcher.group(5) == null ? 0 : Integer.parseInt(matcher.group(5));
+
+        long r = millis;
+        r += seconds * 1000L;
+        r += minutes * 60 * 1000L;
+        r += hours * 60 * 60 * 1000L;
+        r += days * 24 * 60 * 60 * 1000L;
+
+        return r;
+    }
+
+    /**
+     * Parses the ADS format: yyyy.ddd.hh.mm.ss[mmm] into milliseconds
+     * 
+     */
+    public static long parseAdsTime(String timeString) throws ParseException {
+        String regex = "(\\d{4})\\.(\\d{1,3})\\.(\\d{1,2})\\.(\\d{1,2})\\.(\\d{1,2})\\[(\\d{1,3})\\]";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(timeString);
+
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Time string is not in the correct format.");
+        }
+
+        // Extract the different parts of the time
+        int year = Integer.parseInt(matcher.group(1));
+        int doy = Integer.parseInt(matcher.group(2));
+        int hour = Integer.parseInt(matcher.group(3));
+        int minute = Integer.parseInt(matcher.group(4));
+        int second = Integer.parseInt(matcher.group(5));
+        int millisec = Integer.parseInt(matcher.group(6));
+        TaiUtcConverter.DateTimeComponents dtc = new TaiUtcConverter.DateTimeComponents(year, doy, hour, minute, second,
+                millisec);
+        return TimeEncoding.fromUtc(dtc);
+    }
+
+    /**
+     * Parses the format yyyy-mm-ddThh:mm:ss.[uuuuuuu] into milliseconds
+     * 
+     */
+    public static long parseAsciiATime(String timeString) throws ParseException {
+        try {
+            return TimeEncoding.parse(timeString);
+        } catch (IllegalArgumentException e) {
+            throw new ParseException(e.getMessage());
+        }
+    }
+
+    /**
+     * Parses the format yyyy-dddThh:mm:ss.[uuuuuu] into milliseconds
+     * 
+     */
+    public static long parseAsciiBTime(String timeString) throws ParseException {
+        try {
+            return TimeEncoding.parse(timeString);
+        } catch (IllegalArgumentException e) {
+            throw new ParseException(e.getMessage());
+        }
     }
 
     public static org.yamcs.protobuf.Yamcs.Value.Type getEngType(ParameterType ptype) {
@@ -303,6 +402,22 @@ public abstract class BaseOLParser {
 
         public String toString() {
             return name + ":" + type;
+        }
+    }
+
+    enum ParameterView {
+        RAW, ENG, TIME;
+
+        static ParameterView parse(String s) throws ParseException {
+            if ("eng".equalsIgnoreCase(s)) {
+                return ENG;
+            } else if ("raw".equalsIgnoreCase(s)) {
+                return RAW;
+            } else if ("time".equalsIgnoreCase(s)) {
+                return TIME;
+            } else {
+                throw new ParseException("Unknown parameter view '" + s + "'");
+            }
         }
     }
 }

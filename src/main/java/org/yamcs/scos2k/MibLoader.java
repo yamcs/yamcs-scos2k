@@ -30,7 +30,6 @@ public class MibLoader extends TcMibLoader {
         loadCommands();
         return spaceSystem;
     }
-
     
     // Database version
     final static int IDX_VDF_NAME = 0;

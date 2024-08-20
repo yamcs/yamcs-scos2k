@@ -61,6 +61,7 @@ TOKEN :
 | <ARCCOS : "arccos">
 | <ARCTAN : "arctan">
 | <ARCCOTAN : "arccotan">
+| <ABS : "abs">
 | <SYSTEM_TIME : "system_time">
 | <SYSTEM_DATE : "system_date">
 | <AND : "and">
@@ -78,15 +79,35 @@ TOKEN :
 {
   < IDENTIFIER: ("$")? ["a"-"z","A"-"Z","_"] ( ["a"-"z","A"-"Z","_","0"-"9"] )* ("." ("eng" | "raw" | "time" | "mon" | "valid" | "rawvalid" | "engvalid"))? >
 |
-  < INTEGER_LITERAL: ("-")? ( ["0"-"9","_"] )+ >
+  < INTEGER_LITERAL: ( ["0"-"9","_"] )+ >
 |
   < FLOATING_POINT_LITERAL:
-        ("-")? (["0"-"9"]) (["0"-"9","_"])* "." (["0"-"9","_"])* (<EXPONENT>)?
-      | ("-")? "." (["0"-"9","_"])+ (<EXPONENT>)?
-      | ("-")? (["0"-"9","_"])+ (<EXPONENT>)?
+        (["0"-"9"]) (["0"-"9","_"])* "." (["0"-"9","_"])* (<EXPONENT>)?
+      | "." (["0"-"9","_"])+ (<EXPONENT>)?
+      | (["0"-"9","_"])+ (<EXPONENT>)?
   >
 |
+  <STRING_LITERAL: "\"" (~["\n","\r","\""])* "\"" >
+|
   < #EXPONENT: ["e","E"] (["+","-"])? (["0"-"9"])+ >
+|
+  < #DIG2: ["0"-"9"] ["0"-"9"]>
+|
+  < #DIG3: ["0"-"9"] ["0"-"9"] ["0"-"9"]>
+|
+  < #DIG4: <DIG3> ["0"-"9"]>
+|
+  < #DIG6: <DIG3> <DIG3>>
+|
+  < #DIG7: <DIG6> ["0"-"9"]>
+|
+  < ABS_TIME_ADS : <DIG4> "." <DIG3> "." <DIG2> "." <DIG2> "." <DIG2> ("." <DIG3>)? >
+| 
+  < ABS_TIME_ASCIIA : <DIG4> "-" <DIG3> "-" <DIG2> "T" <DIG2> ":" <DIG2> ":" <DIG2> ("." <DIG7>)? > 
+|  
+  < ABS_TIME_ASCIIB : <DIG4> "-" <DIG3> "T" <DIG2> ":" <DIG2> ":" <DIG2> ("." <DIG6>)? >
+|
+  < DELTA_TIME : <DIG3> "." <DIG2> "." <DIG2> "." <DIG2> ("." <DIG3>)?  >
 }
 
 void Formula() :  {} 
@@ -192,6 +213,7 @@ ExpressionCode ShiftExpression() :  {
     { return getCode(ec1, ec2, op);}
 }
 
+/*
 ExpressionCode RelationlExpression() :  {
  ExpressionCode ec1, ec2 = null;
  Operation op = null;
@@ -199,6 +221,34 @@ ExpressionCode RelationlExpression() :  {
 {
     (ec1 = AdditiveExpression() [op = RelOp() ec2 = RelationlExpression()] )
     { return getCode(ec1, ec2, op);}
+}
+*/
+
+ExpressionCode RelationlExpression() :  {
+    ExpressionCode ec1, ec2 = null;
+    ExpressionCode result, result1;
+    Operation op = null;
+    boolean first = true;
+}
+{
+    ec1 = AdditiveExpression()
+    {
+        result = ec1;
+    }
+    (   // Allow for multiple chained relational expressions
+        ( op = RelOp() ec2 = AdditiveExpression() ) 
+        {
+            result1 = getCode(ec1, ec2, op);
+            if (first) {
+            	result = result1;
+            	first = false;
+            } else {
+                result = getCode(result, result1, Operation.LOGIC_AND);
+            }
+            ec1 = ec2;
+        }
+    )*
+    { return result; }
 }
 
 
@@ -231,7 +281,7 @@ ExpressionCode UnaryExpression() : {
   Operation op = null;
 }
 {
-   (   "+"  {op = Operation.PLUS;}
+   ( "+"  {op = Operation.PLUS;}
      | "-" {op = Operation.MINUS;}
      | <NOT> {op = Operation.BITW_NOT;}
      | <LNOT> {op = Operation.LOGIC_NOT;}
@@ -295,7 +345,7 @@ String FunctionName () :
   (
     t = <SIN> | t = <COS> | t = <TAN> | t = <COTAN> | t = <ARCSIN>
   | t = <ARCCOS> | t = <ARCTAN> | t = <ARCCOTAN> | t = <SYSTEM_TIME>
-  | t = <SYSTEM_DATE>
+  | t = <SYSTEM_DATE> | t = <ABS>
   )
    {return t.image;}
 }
@@ -315,14 +365,17 @@ ExpressionCode Synth() :
         return getSynthExpression(paraList);
     }
 }
-ExpressionCode Constant () : 
-{Token t;
+ExpressionCode Constant (): {
+   Token t;
 }
 {
     t = <TRUE>  {return new ExpressionCode(Type.BOOLEAN, "Boolean.TRUE");}
     | t = <FALSE> {return new ExpressionCode(Type.BOOLEAN, "Boolean.FALSE");}
     | t = <INTEGER_LITERAL>   {return new ExpressionCode(Type.LONG, t.image);}
+    | t = <DELTA_TIME> {long reltime = parseDeltaTime(t.image); return new ExpressionCode(Type.LONG, Long.toString(reltime));}
     | t = <FLOATING_POINT_LITERAL> {return new ExpressionCode(Type.DOUBLE, t.image);}
+    | t = <STRING_LITERAL> {String s = t.image; return new ExpressionCode(Type.STRING, s);}
+   
 }
 Operation RelOp() :
 {}

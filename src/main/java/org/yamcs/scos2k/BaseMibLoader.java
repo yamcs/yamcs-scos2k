@@ -6,13 +6,16 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.LineNumberReader;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
 import org.yamcs.ConfigurationException;
 import org.yamcs.YConfiguration;
 import org.yamcs.scos2k.MibLoaderBits.MibLoadException;
+import org.yamcs.scos2k.MonitoringData.DeducedParameter;
 import org.yamcs.mdb.AbstractFileLoader;
 import org.yamcs.xtce.BaseDataType;
 import org.yamcs.xtce.BinaryArgumentType;
@@ -43,6 +46,8 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
     static final String OB_PID_NAMESPACE = "OB:PID";
     static final Pattern MIB_PNAME = Pattern.compile("\\w+");
 
+    private List<MibLoadException> errors = new ArrayList<>();
+
     protected MibLoaderContext ctx = new MibLoaderContext(null, -1);
     protected LineNumberReader reader;
     String currentFile;
@@ -61,6 +66,8 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
     TimeEpoch timeEpoch;
 
     String ssName;
+
+    boolean strict = false;
 
     public BaseMibLoader(YConfiguration config) throws ConfigurationException {
         super(config.getString("path"));
@@ -256,4 +263,11 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
         }
     }
 
+    void error(MibLoadException e) {
+        if (strict) {
+            throw e;
+        }
+        log.warn("{}", e.getMessage());
+        errors.add(e);
+    }
 }
