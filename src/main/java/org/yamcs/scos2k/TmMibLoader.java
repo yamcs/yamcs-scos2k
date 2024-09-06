@@ -492,9 +492,6 @@ public abstract class TmMibLoader extends BaseMibLoader {
             if (mp.pcf.pid != -1) {
                 p.addAlias(OB_PID_NAMESPACE, Integer.toString(mp.pcf.pid));
             }
-            // if(spaceSystem.getParameterType(mp.ptype.getName()) == null) {
-            // spaceSystem.addParameterType(mp.ptype);
-            // }
             spaceSystem.addParameter(p);
         }
         loadSynthetic();
@@ -829,7 +826,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             } else {
                 contextMatch = null;
             }
-            
+
             AlarmLevels level = "S".equals(r.type) ? AlarmLevels.WARNING : AlarmLevels.CRITICAL;
 
             if (raw) {
@@ -838,11 +835,12 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     rv = Long.parseLong(r.lvalu);
                 } catch (IllegalArgumentException e) {
                     throw new MibLoadException(ctx,
-                            "Failed to parse '" + r.lvalu + "' into a number from OCP record "+r);
+                            "Failed to parse '" + r.lvalu + "' into a number from OCP record " + r);
                 }
-                String label =findEnumeration(ptype, rv);
+                String label = findEnumeration(ptype, rv);
                 if (label == null) {
-                    log.warn("Cannot find label for raw value {} for enumerated parameter type associated to {}: {}", rv, mp.name(), ptype);
+                    log.warn("Cannot find label for raw value {} for enumerated parameter type associated to {}: {}",
+                            rv, mp.name(), ptype);
                 } else {
                     ptype.addAlarm(contextMatch, label, level);
                 }
@@ -869,10 +867,20 @@ public abstract class TmMibLoader extends BaseMibLoader {
 
         return null;
     }
+
     private void addNumericAlarm(MibParameter mp, List<OcpRecord> l, int minViolations) {
         Parameter param = spaceSystem.getParameter(mp.name());
-        NumericParameterType.Builder<?> ptype = (NumericParameterType.Builder<?>) param.getParameterType().toBuilder();
-
+        NumericParameterType.Builder<?> ptypeb = (NumericParameterType.Builder<?>) param.getParameterType().toBuilder();
+        int idx = 1;
+        while (true) {
+            String name = ptypeb.getName() + "_" + idx;
+            if (spaceSystem.getParameterType(name) != null) {
+                idx++;
+                continue;
+            }
+            ptypeb.setName(name);
+            break;
+        }
         OcpRecord prev = null;
         MatchCriteria contextMatch = null;
         for (OcpRecord r : l) {
@@ -911,12 +919,14 @@ public abstract class TmMibLoader extends BaseMibLoader {
             }
 
             AlarmLevels level = "S".equals(r.type) ? AlarmLevels.WARNING : AlarmLevels.CRITICAL;
-            NumericAlarm alarm = ptype.createOrGetAlarm(contextMatch);
+            NumericAlarm alarm = ptypeb.createOrGetAlarm(contextMatch);
             alarm.setMinViolations(minViolations);
             alarm.getStaticAlarmRanges().addRange(range, level);
             prev = r;
         }
-        param.setParameterType(ptype.build());
+        ParameterType ptype = ptypeb.build();
+        spaceSystem.addParameterType(ptype);
+        param.setParameterType(ptype);
     }
 
     // Monitoring checks definition: ocp
