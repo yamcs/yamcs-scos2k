@@ -179,6 +179,10 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
         try {
             String line = reader.readLine();
             ctx.lineNum = reader.getLineNumber();
+            if (ctx.lineNum == 1 && line != null && line.startsWith("#")) {
+                line = reader.readLine();
+                ctx.lineNum = reader.getLineNumber();
+            }
             if (line == null) {
                 return null;
             }
