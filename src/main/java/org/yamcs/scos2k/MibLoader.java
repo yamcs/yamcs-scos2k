@@ -11,9 +11,6 @@ import org.yamcs.xtce.SpaceSystem;
  * Loads SCOS MIB database.
  * 
  * It's split in four files: MibLoader, TcMibLoader, TmMibLoader and BaseMibLoader
- *  
- * @author nm
- *
  */
 public class MibLoader extends TcMibLoader {
     

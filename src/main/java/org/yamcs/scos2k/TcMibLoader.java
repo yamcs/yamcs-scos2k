@@ -3,6 +3,8 @@ package org.yamcs.scos2k;
 import static org.yamcs.scos2k.MibLoaderBits.getDataEncoding;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +19,7 @@ import org.yamcs.scos2k.MonitoringData.PrfRecord;
 import org.yamcs.scos2k.CommandingData.TcHeaderRecord;
 import org.yamcs.utils.StringConverter;
 import org.yamcs.xtce.AggregateArgumentType;
+import org.yamcs.xtce.Algorithm.Scope;
 import org.yamcs.xtce.Argument;
 import org.yamcs.xtce.ArgumentAssignment;
 import org.yamcs.xtce.ArgumentEntry;
@@ -30,12 +33,14 @@ import org.yamcs.xtce.CommandVerifier;
 import org.yamcs.xtce.CommandVerifier.Type;
 import org.yamcs.xtce.Comparison;
 import org.yamcs.xtce.ComparisonList;
+import org.yamcs.xtce.CustomAlgorithm;
 import org.yamcs.xtce.DataEncoding;
 import org.yamcs.mdb.DatabaseLoadException;
 import org.yamcs.xtce.EnumeratedArgumentType;
 import org.yamcs.xtce.FixedValueEntry;
 import org.yamcs.xtce.FloatArgumentType;
 import org.yamcs.xtce.FloatDataEncoding;
+import org.yamcs.xtce.InputParameter;
 import org.yamcs.xtce.IntegerArgumentType;
 import org.yamcs.xtce.IntegerDataEncoding;
 import org.yamcs.xtce.MatchCriteria;
@@ -47,6 +52,7 @@ import org.yamcs.xtce.OperatorType;
 import org.yamcs.xtce.Parameter;
 import org.yamcs.xtce.ParameterInstanceRef;
 import org.yamcs.xtce.ParameterType;
+import org.yamcs.xtce.SequenceContainer;
 import org.yamcs.xtce.SequenceEntry;
 import org.yamcs.xtce.SequenceEntry.ReferenceLocationType;
 import org.yamcs.xtce.Significance;
@@ -57,6 +63,8 @@ import org.yamcs.xtce.TransmissionConstraint;
 import org.yamcs.xtce.UnitType;
 import org.yamcs.xtce.ValueEnumeration;
 import org.yamcs.xtce.ValueEnumerationRange;
+
+import static org.yamcs.scos2k.MibLoaderBits.*;
 
 public abstract class TcMibLoader extends TmMibLoader {
     Map<String, CpcRecord> cpcRecords = new HashMap<>();
@@ -289,7 +297,8 @@ public abstract class TcMibLoader extends TmMibLoader {
             mc.setDefaultSignificance(signific);
             CommandContainer container = new CommandContainer(mc.getName());
             mc.setCommandContainer(container);
-
+            int type = -1;
+            int subType = -1;
             if (thr != null) {
                 mc1.setBaseMetaCommand(thr.mc);
                 container.setBaseContainer(thr.mc.getCommandContainer());
@@ -298,16 +307,26 @@ public abstract class TcMibLoader extends TmMibLoader {
                     mc1.addArgumentAssignment(new ArgumentAssignment(thr.apid.getName(), Integer.toString(apid)));
                 }
                 if (thr.type != null) {
-                    int type = getInt(line, IDX_CCF_TYPE);
+                    type = getInt(line, IDX_CCF_TYPE);
                     mc1.addArgumentAssignment(new ArgumentAssignment(thr.type.getName(), Integer.toString(type)));
                 }
                 if (thr.subType != null) {
-                    int subType = getInt(line, IDX_CCF_STYPE);
+                    subType = getInt(line, IDX_CCF_STYPE);
                     mc1.addArgumentAssignment(new ArgumentAssignment(thr.subType.getName(), Integer.toString(subType)));
                 }
                 if (thr.ack != null && hasColumn(line, IDX_CCF_ACK)) {
                     int ack = getInt(line, IDX_CCF_ACK);
                     mc1.addArgumentAssignment(new ArgumentAssignment(thr.ack.getName(), Integer.toString(ack)));
+                }
+            }
+            if (type == 17 && subType == 1) {
+                // add PUS(17,2) verifier
+                SequenceContainer sc = findContainer(17, 2);
+                if (sc != null) {
+                    CommandVerifier cv = new CommandVerifier(Type.CONTAINER, "Execution",
+                            new CheckWindow(0, 15000, TimeWindowIsRelativeToType.COMMAND_RELEASE));
+                    cv.setContainerRef(sc);
+                    mc.addVerifier(cv);
                 }
             }
             addArguments(abstractMc, mc);
@@ -316,6 +335,37 @@ public abstract class TcMibLoader extends TmMibLoader {
             }
             spaceSystem.addMetaCommand(mc);
         }
+    }
+
+    SequenceContainer findContainer(int type, int subType) {
+        for (var seq : spaceSystem.getSequenceContainers()) {
+            ComparisonList clist = (ComparisonList) seq.getRestrictionCriteria();
+            if (clist == null) {
+                continue;
+            }
+            boolean foundType = false;
+            boolean foundSubType = false;
+            for (var comp : clist.getComparisonList()) {
+                if (comp.getRef() instanceof ParameterInstanceRef pir) {
+                    Parameter p = pir.getParameter();
+                    if (PARA_NAME_PUS_TYPE.equals(p.getName())
+                            && comp.getStringValue().equals(Integer.toString(type))) {
+                        foundType = true;
+                    }
+                    if (PARA_NAME_PUS_STYPE.equals(p.getName())
+                            && comp.getStringValue().equals(Integer.toString(subType))) {
+                        foundSubType = true;
+                    }
+                }
+
+            }
+
+            if (foundType && foundSubType) {
+                return seq;
+            }
+        }
+
+        return null;
     }
 
     boolean hasReadOnlyArguments(String cname) {
@@ -902,26 +952,63 @@ public abstract class TcMibLoader extends TmMibLoader {
             int interval = getInt(line, IDX_CVS_INTERVAL);
             int uncertainty = getInt(line, IDX_CVS_UNCERTAINTY, uncertaintyPeriod);
             String type = line[IDX_CVS_TYPE];
-            CheckWindow checkWindow = new CheckWindow(start * 1000, (start + uncertainty) * 1000,
+
+            var stop = start + interval + (uncertainty > 0 ? uncertainty : 0);
+            CheckWindow checkWindow = new CheckWindow(start * 1000, stop * 1000,
                     TimeWindowIsRelativeToType.COMMAND_RELEASE);
 
-            // TODO : when adding verifiers of type ComparisonList and Comparison we can complete the implementation
-            // here
-            if ("R".equals(source)) {
+            String stage = switch (type) {
+            case "A" -> "Acceptance";
+            case "S" -> "Start";
+            case "C" -> "Completion";
+            default -> "Progress_" + type;
+            };
 
+            CommandVerifier cv;
+            if ("R".equals(source)) {
+                cv = createPusVerifier(stage, checkWindow);
             } else if ("V".equals(source)) {
                 List<MatchCriteria> l = paramConditions.get(id);
                 if (l == null) {
                     throw new MibLoadException(ctx, "No CVE record found for CVS_ID=" + id);
                 }
-                CommandVerifier v = new CommandVerifier(Type.CONTAINER, type, checkWindow);
-                verifiers.put(id, v);
+                cv = new CommandVerifier(Type.CONTAINER, type, checkWindow);
+
             } else {
                 throw new MibLoadException(ctx,
                         "Invalid value '" + source + "' for CVS_SOURCE. Expected R or V");
             }
+            verifiers.put(id, cv);
         }
         return verifiers;
+    }
+
+    private CommandVerifier createPusVerifier(String stage, CheckWindow checkWindow) {
+        CommandVerifier cv = new CommandVerifier(Type.ALGORITHM, stage, checkWindow);
+        CustomAlgorithm alg = (CustomAlgorithm) spaceSystem.getAlgorithm("PUS_Verifier-" + stage);
+        if (alg == null) {
+            alg = new CustomAlgorithm("PUS_Verifier-" + stage);
+            alg.setScope(Scope.COMMAND_VERIFICATION);
+            alg.setInputList(
+                    Arrays.asList(
+                            getAlgoInput(PARA_NAME_APID, "sentApid"),
+                            getAlgoInput(PARA_NAME_SEQCOUNT, "sentApid"),
+                            getAlgoInput(PARA_NAME_PUS1_APID, "rcvdApid"),
+                            getAlgoInput(PARA_NAME_PUS1_SEQCOUNT, "rcvdSeq")));
+            alg.setOutputList(Collections.emptyList());
+            int verificationStage = switch (stage) {
+            case "Acceptance" -> 1;
+            case "Start" -> 3;
+            case "Completion" -> 7;
+            default -> 5;
+            };
+            alg.setAlgorithmText("org.yamcs.scos2k.Pus1Verifier({stage: " + verificationStage + "})");
+            alg.setLanguage("java");
+            spaceSystem.addAlgorithm(alg);
+        }
+
+        cv.setAlgorithm(alg);
+        return cv;
     }
 
     // Verification profiles: cvp
@@ -953,6 +1040,18 @@ public abstract class TcMibLoader extends TmMibLoader {
             }
             mc.addVerifier(cv);
         }
+    }
+
+    InputParameter getAlgoInput(String paraName, String inputName) {
+        Parameter p = spaceSystem.getParameter(paraName);
+        if (p == null) {
+            throw new MibLoadException("Cannot find parameter " + paraName);
+        }
+        var ip = new InputParameter(new ParameterInstanceRef(p));
+        ip.setInputName(inputName);
+        ip.setMandatory(true);
+
+        return ip;
     }
 
 }

@@ -36,9 +36,14 @@ public class MibLoaderBits {
     static final byte[] PTC9_10_SIZE_IN_BITS = new byte[] { -1, 48, 64, 8, 16, 24, 32, 16, 24, 32, 40, 24, 32, 40, 48,
             32, 40, 48, 56 };
     static final String PARA_NAME_APID = "ccsds_apid";
+    static final String PARA_NAME_SEQCOUNT = "ccsds_seqcount";
     static final String PARA_NAME_PUS_TYPE = "pus_type";
     static final String PARA_NAME_PUS_STYPE = "pus_stype";
     static final String CONTAINER_NAME_ROOT = "ccsds-pus";
+
+    // these parameters are added to the data part of PUS1 packets for being used in the command verification
+    static final String PARA_NAME_PUS1_APID = "pus1_apid";
+    static final String PARA_NAME_PUS1_SEQCOUNT = "pus1_seqcount";
 
     static class MibLoaderContext {
         String filename;
@@ -227,12 +232,16 @@ public class MibLoaderBits {
         spaceSystem.addSequenceContainer(ccsds);
         // spaceSystem.setRootSequenceContainer(ccsds);
         Parameter ccsdsApid = new Parameter(PARA_NAME_APID);
-        IntegerParameterType ccsdsApidType = getIntegerParameterType(spaceSystem, 11);
-        ccsdsApid.setParameterType(ccsdsApidType);
+        ccsdsApid.setParameterType(getUnsignedParameterType(spaceSystem, 11));
         ccsds.addEntry(new ParameterEntry(5, ReferenceLocationType.CONTAINER_START, ccsdsApid));
         spaceSystem.addParameter(ccsdsApid);
 
-        IntegerParameterType uint8 = getIntegerParameterType(spaceSystem, 8);
+        Parameter ccsdsSeqCount = new Parameter(PARA_NAME_SEQCOUNT);
+        ccsdsSeqCount.setParameterType(getUnsignedParameterType(spaceSystem, 16));
+        ccsds.addEntry(new ParameterEntry(16, ReferenceLocationType.CONTAINER_START, ccsdsSeqCount));
+        spaceSystem.addParameter(ccsdsSeqCount);
+
+        IntegerParameterType uint8 = getUnsignedParameterType(spaceSystem, 8);
 
         Parameter pusPacketType = new Parameter(PARA_NAME_PUS_TYPE);
         pusPacketType.setParameterType(uint8);
@@ -251,7 +260,11 @@ public class MibLoaderBits {
         }
     }
 
-    static SequenceContainer createSubcontainer(SpaceSystem spaceSystem, int apid, int type, int stype, String name) {
+    /**
+     * Create a sub-container directly inheriting the ccsds one
+     */
+    static SequenceContainer createLevel1Subcontainer(SpaceSystem spaceSystem, int apid, int type, int stype,
+            String name, int pus1DataOffset) {
         Parameter ccsdsApid = spaceSystem.getParameter(PARA_NAME_APID);
         Parameter pusPacketType = spaceSystem.getParameter(PARA_NAME_PUS_TYPE);
         Parameter pusPacketSubType = spaceSystem.getParameter(PARA_NAME_PUS_STYPE);
@@ -270,6 +283,29 @@ public class MibLoaderBits {
                 new Comparison(new ParameterInstanceRef(pusPacketSubType, false), Integer.toString(stype),
                         OperatorType.EQUALITY));
         container.setRestrictionCriteria(cl);
+
+        if (type == 1) {
+            Parameter pus1Apid = spaceSystem.getParameter(PARA_NAME_PUS1_APID);
+            if (pus1Apid == null) {
+                pus1Apid = new Parameter(PARA_NAME_PUS1_APID);
+                pus1Apid.setParameterType(getUnsignedParameterType(spaceSystem, 11));
+                spaceSystem.addParameter(pus1Apid);
+            }
+
+            container.addEntry(
+                    new ParameterEntry(8 * pus1DataOffset + 5, ReferenceLocationType.CONTAINER_START, pus1Apid));
+
+
+            Parameter pus1SeqCount = spaceSystem.getParameter(PARA_NAME_PUS1_SEQCOUNT);
+            if (pus1SeqCount == null) {
+                pus1SeqCount = new Parameter(PARA_NAME_PUS1_SEQCOUNT);
+                pus1SeqCount.setParameterType(getUnsignedParameterType(spaceSystem, 16));
+                spaceSystem.addParameter(pus1SeqCount);
+            }
+            container.addEntry(
+                    new ParameterEntry(8 * pus1DataOffset + 16, ReferenceLocationType.CONTAINER_START, pus1SeqCount));
+        }
+
         spaceSystem.addSequenceContainer(container);
         return container;
     }
@@ -282,7 +318,7 @@ public class MibLoaderBits {
         return name.replaceAll("[\\s/]", "_");
     }
 
-    static IntegerParameterType getIntegerParameterType(SpaceSystem spaceSystem, int bitsize) {
+    static IntegerParameterType getUnsignedParameterType(SpaceSystem spaceSystem, int bitsize) {
         if ((bitsize < 1) || bitsize > 64) {
             throw new IllegalArgumentException("bitsize " + bitsize + " not allowed");
         }
@@ -318,7 +354,7 @@ public class MibLoaderBits {
         if (argument) {
             return getIntegerArgumentType(bitsize);
         } else {
-            return getIntegerParameterType(spaceSystem, bitsize);
+            return getUnsignedParameterType(spaceSystem, bitsize);
         }
     }
 

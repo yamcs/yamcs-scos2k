@@ -98,6 +98,9 @@ public abstract class TmMibLoader extends BaseMibLoader {
     // where to extract the type and subType from the packet - in bytes
     int typeOffset = 0;
     int subTypeOffset = 0;
+
+    // where the data starts in the PUS1 packets - used to create the parameters for the command verifiers
+    int pus1DataOffset;
     Map<String, PcfRecord> savedSynthenticParams = new HashMap<>();
 
     public TmMibLoader(YConfiguration config) throws ConfigurationException {
@@ -110,6 +113,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
         }
         typeOffset = tmConf.getInt("typeOffset");
         subTypeOffset = tmConf.getInt("subTypeOffset");
+        pus1DataOffset = tmConf.getInt("pus1DataOffset");
 
     }
 
@@ -1067,7 +1071,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 if (spaceSystem.getSequenceContainer(name) != null) {
                     name = name + " spid_" + pid.spid;
                 }
-                seq = createSubcontainer(spaceSystem, apid, type, stype, name);
+                seq = createLevel1Subcontainer(spaceSystem, apid, type, stype, name, pus1DataOffset);
                 spidToSeqContainer.put(pid.spid, seq);
             } else {
                 PicRecord pic = findPic(picRecords, type, stype, apid);
@@ -1075,12 +1079,12 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     throw new MibLoadException(ctx,
                             "Cannot find a PIC record for type=" + type + " stype=" + stype + " apid = " + apid);
                 }
-                seq = createSubcontainer(spaceSystem, apid, type, stype, name);
+                seq = createLevel1Subcontainer(spaceSystem, apid, type, stype, name, pus1DataOffset);
                 Parameter pi1 = null;
                 Parameter pi2 = null;
                 if (pic.pi1Offset >= 0) {
                     if (pic.pi1Width > 0) {
-                        IntegerParameterType pi1type = getIntegerParameterType(spaceSystem, pic.pi1Width);
+                        IntegerParameterType pi1type = getUnsignedParameterType(spaceSystem, pic.pi1Width);
                         pi1 = new Parameter(name + "_pi1");
                         pi1.setParameterType(pi1type);
                         spaceSystem.addParameter(pi1);
@@ -1092,7 +1096,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 }
                 if (pic.pi2Offset >= 0) {
                     if (pic.pi1Width > 0) {
-                        IntegerParameterType pi2type = getIntegerParameterType(spaceSystem, pic.pi2Width);
+                        IntegerParameterType pi2type = getUnsignedParameterType(spaceSystem, pic.pi2Width);
                         pi2 = new Parameter(name + "_pi2");
                         pi2.setParameterType(pi2type);
                         spaceSystem.addParameter(pi2);
