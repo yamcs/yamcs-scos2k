@@ -323,7 +323,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                 // add PUS(17,2) verifier
                 SequenceContainer sc = findContainer(17, 2);
                 if (sc != null) {
-                    CommandVerifier cv = new CommandVerifier(Type.CONTAINER, "Execution",
+                    CommandVerifier cv = new CommandVerifier(Type.CONTAINER, "PUS17_Report",
                             new CheckWindow(0, 15000, TimeWindowIsRelativeToType.COMMAND_RELEASE));
                     cv.setContainerRef(sc);
                     mc.addVerifier(cv);
