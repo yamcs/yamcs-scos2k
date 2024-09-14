@@ -31,7 +31,6 @@ To be fixed soon:
 
 * the loader does not detect when the files have changed and does not reload the database. This is because it looks at the date  of the ASCII directory. As a workaround you can either remove the serialized MDB from ~/.yamcs or /opt/yamcs/cache or run "touch ASCII" to change the date of the directory.
 
-* command verifiers are currently not loaded
 
 
 Not immediate priority:
