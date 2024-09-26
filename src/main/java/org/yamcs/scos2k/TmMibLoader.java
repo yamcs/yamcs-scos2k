@@ -801,7 +801,8 @@ public abstract class TmMibLoader extends BaseMibLoader {
 
     private void addEnumeratedAlarm(MibParameter mp, List<OcpRecord> l, boolean raw) {
         Parameter param = spaceSystem.getParameter(mp.name());
-        EnumeratedParameterType.Builder ptype = (EnumeratedParameterType.Builder) param.getParameterType().toBuilder();
+        EnumeratedParameterType.Builder ptypeb = (EnumeratedParameterType.Builder) param.getParameterType().toBuilder();
+        ptypeb.setName(findParameterTypeName(ptypeb.getName()));
 
         OcpRecord prev = null;
         MatchCriteria contextMatch = null;
@@ -841,20 +842,23 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     throw new MibLoadException(ctx,
                             "Failed to parse '" + r.lvalu + "' into a number from OCP record " + r);
                 }
-                String label = findEnumeration(ptype, rv);
+                String label = findEnumeration(ptypeb, rv);
                 if (label == null) {
                     log.warn("Cannot find label for raw value {} for enumerated parameter type associated to {}: {}",
-                            rv, mp.name(), ptype);
+                            rv, mp.name(), ptypeb);
                 } else {
-                    ptype.addAlarm(contextMatch, label, level);
+                    ptypeb.addAlarm(contextMatch, label, level);
                 }
             } else {
-                ptype.addAlarm(contextMatch, r.lvalu, level);
+                ptypeb.addAlarm(contextMatch, r.lvalu, level);
             }
             prev = r;
         }
-        param.setParameterType(ptype.build());
+        var ptype = ptypeb.build();
+        spaceSystem.addParameterType(ptype);
+        param.setParameterType(ptype);
     }
+
 
     private String findEnumeration(EnumeratedParameterType.Builder ptype, long rv) {
         for (ValueEnumeration ve : ptype.getValueEnumerationList()) {
@@ -875,16 +879,8 @@ public abstract class TmMibLoader extends BaseMibLoader {
     private void addNumericAlarm(MibParameter mp, List<OcpRecord> l, int minViolations) {
         Parameter param = spaceSystem.getParameter(mp.name());
         NumericParameterType.Builder<?> ptypeb = (NumericParameterType.Builder<?>) param.getParameterType().toBuilder();
-        int idx = 1;
-        while (true) {
-            String name = ptypeb.getName() + "_" + idx;
-            if (spaceSystem.getParameterType(name) != null) {
-                idx++;
-                continue;
-            }
-            ptypeb.setName(name);
-            break;
-        }
+        ptypeb.setName(findParameterTypeName(ptypeb.getName()));
+
         OcpRecord prev = null;
         MatchCriteria contextMatch = null;
         for (OcpRecord r : l) {
@@ -933,6 +929,16 @@ public abstract class TmMibLoader extends BaseMibLoader {
         param.setParameterType(ptype);
     }
 
+    private String findParameterTypeName(String oldName) {
+        int idx = 1;
+        while (true) {
+            String name = oldName + "_" + idx;
+            if (spaceSystem.getParameterType(name) == null) {
+                return name;
+            }
+            idx++;
+        }
+    }
     // Monitoring checks definition: ocp
     final static int IDX_OCP_NAME = 0;
     final static int IDX_OCP_POS = 1;
