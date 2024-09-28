@@ -1,11 +1,14 @@
-Version 0.1 released 13-Aug-2024
-- first maven release
+Version 0.3.0 released 28-Sep-2024
+- load SCOS alphanumeric displays into Yamcs parameter lists
 
-Version 0.2 released 9-Sep-2024
-- added PUS command verifiers and also verifier for PUS17
+Version 0.2.2 released 27-Sep-2024
+- added missing parameter types to the SpaceSytem
 
 version 0.2.1 released 9-Sep-2024
 - fixed the name of the PUS17 verifier 
 
-version 0.2.2 released 27-Sep-2024
-- added missing parameter types to the SpaceSytem
+Version 0.2 released 9-Sep-2024
+- added PUS command verifiers and also verifier for PUS17
+
+Version 0.1 released 13-Aug-2024
+- first maven release
