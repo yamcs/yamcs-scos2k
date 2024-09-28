@@ -1,11 +1,11 @@
 This project implements a SCOS-2000 MIB loader inside Yamcs.
 
-To use it, first clone the repo and compile it using:
-mvn install
+To use it, please add yamcs-scos2k as a dependency in pom.xml.
 
-Then you can add the following in the mdb.yaml:
+Then you can add the following in the mdb configuration:
+
 <pre>
-scos-mib:
+mdb:
   - type: "org.yamcs.scos2k.MibLoader"
     args: 
         path: "/path/to/ASCII/"        
@@ -24,17 +24,22 @@ scos-mib:
 
 Note: currently all the test files are not stored as part of this project (they are stored in a private repository) because the MIB used for test is taken from another project and cannot be made public. If anyone is willing to contribute a MIB that can be made public, we would gladly change the tests to use that MIB instead.
 
+The project implements a service that loads the MIB alphanumeric displays into Yamcs parameter lists. To use it, please add the MibDisplayLoader to your service list:
+
+<pre>
+services:
+  ....
+  #this is required to have the parameter lists functionality
+  - class: org.yamcs.plists.ParameterListService
+  # this is loading the MIB 
+  - class: org.yamcs.scos2k.MibDisplayLoader
+    args:
+      mibPath: "path/to/ASCII"
+
+</pre>
+Node that the parameter lists created by the service can be modified but will not be persisted (the MIB files are not changed). The modifications will be overwritten upon restarting Yamcs.
 
 # Known problems and limitations
-
-To be fixed soon:
-
-* the loader does not detect when the files have changed and does not reload the database. This is because it looks at the date  of the ASCII directory. As a workaround you can either remove the serialized MDB from ~/.yamcs or /opt/yamcs/cache or run "touch ASCII" to change the date of the directory.
-
-
-
-Not immediate priority:
-
 * delta monitoring checks (OCP_TYPE=D) not supported
 * event generation (OCP_TYPE=E) not supported
 * status consistency checks (OCP_TYPE=C, PCF_USCON=Y) not supported
