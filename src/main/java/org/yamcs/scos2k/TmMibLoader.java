@@ -859,7 +859,6 @@ public abstract class TmMibLoader extends BaseMibLoader {
         param.setParameterType(ptype);
     }
 
-
     private String findEnumeration(EnumeratedParameterType.Builder ptype, long rv) {
         for (ValueEnumeration ve : ptype.getValueEnumerationList()) {
             if (ve.getValue() == rv) {
@@ -939,6 +938,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             idx++;
         }
     }
+
     // Monitoring checks definition: ocp
     final static int IDX_OCP_NAME = 0;
     final static int IDX_OCP_POS = 1;
@@ -1080,37 +1080,42 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 seq = createLevel1Subcontainer(spaceSystem, apid, type, stype, name, pus1DataOffset);
                 spidToSeqContainer.put(pid.spid, seq);
             } else {
-                PicRecord pic = findPic(picRecords, type, stype, apid);
-                if (pic == null) {
-                    throw new MibLoadException(ctx,
-                            "Cannot find a PIC record for type=" + type + " stype=" + stype + " apid = " + apid);
-                }
                 seq = createLevel1Subcontainer(spaceSystem, apid, type, stype, name, pus1DataOffset);
                 Parameter pi1 = null;
                 Parameter pi2 = null;
-                if (pic.pi1Offset >= 0) {
-                    if (pic.pi1Width > 0) {
-                        IntegerParameterType pi1type = getUnsignedParameterType(spaceSystem, pic.pi1Width);
-                        pi1 = new Parameter(name + "_pi1");
-                        pi1.setParameterType(pi1type);
-                        spaceSystem.addParameter(pi1);
-                        seq.addEntry(new ParameterEntry(8 * pic.pi1Offset, ReferenceLocationType.CONTAINER_START, pi1));
-                    } else {
-                        error(new MibLoadException(ctx,
-                                "Found PIC record with p1_offset >= 0 and p1_width <= 0: " + pic));
+                PicRecord pic = findPic(picRecords, type, stype, apid);
+
+                if (pic == null) {
+                    error(new MibLoadException(ctx,
+                            "Cannot find a PIC record for type=" + type + " stype=" + stype + " apid = " + apid));
+                    // this may continue (if strict=false) and we will create multiple containers derived from the same
+                    // parent without the p1/p2 restriction
+                } else {
+                    if (pic.pi1Offset >= 0) {
+                        if (pic.pi1Width > 0) {
+                            IntegerParameterType pi1type = getUnsignedParameterType(spaceSystem, pic.pi1Width);
+                            pi1 = new Parameter(name + "_pi1");
+                            pi1.setParameterType(pi1type);
+                            spaceSystem.addParameter(pi1);
+                            seq.addEntry(
+                                    new ParameterEntry(8 * pic.pi1Offset, ReferenceLocationType.CONTAINER_START, pi1));
+                        } else {
+                            error(new MibLoadException(ctx,
+                                    "Found PIC record with p1_offset >= 0 and p1_width <= 0: " + pic));
+                        }
                     }
-                }
-                if (pic.pi2Offset >= 0) {
-                    if (pic.pi1Width > 0) {
-                        IntegerParameterType pi2type = getUnsignedParameterType(spaceSystem, pic.pi2Width);
-                        pi2 = new Parameter(name + "_pi2");
-                        pi2.setParameterType(pi2type);
-                        spaceSystem.addParameter(pi2);
-                        seq.addEntry(
-                                new ParameterEntry(8 * pic.pi2Offset, ReferenceLocationType.CONTAINER_START, pi2));
-                    } else {
-                        error(new MibLoadException(ctx,
-                                "Found PIC record with p2_offset >= 0 and p2_width <= 0: " + pic));
+                    if (pic.pi2Offset >= 0) {
+                        if (pic.pi1Width > 0) {
+                            IntegerParameterType pi2type = getUnsignedParameterType(spaceSystem, pic.pi2Width);
+                            pi2 = new Parameter(name + "_pi2");
+                            pi2.setParameterType(pi2type);
+                            spaceSystem.addParameter(pi2);
+                            seq.addEntry(
+                                    new ParameterEntry(8 * pic.pi2Offset, ReferenceLocationType.CONTAINER_START, pi2));
+                        } else {
+                            error(new MibLoadException(ctx,
+                                    "Found PIC record with p2_offset >= 0 and p2_width <= 0: " + pic));
+                        }
                     }
                 }
 
