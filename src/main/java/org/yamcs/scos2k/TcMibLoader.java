@@ -191,7 +191,6 @@ public abstract class TcMibLoader extends TmMibLoader {
                 FixedValueEntry fve = new FixedValueEntry(getString(line, IDX_PCDF_DESC, null), binary, sizeInBits);
                 fve.setLocation(ReferenceLocationType.CONTAINER_START, getInt(line, IDX_PCDF_BIT));
                 container.addEntry(fve);
-
             } else if ("ATSK".contains(type)) {
                 checkMandatory(line, IDX_PCDF_PNAME);
                 arg = headerArgs.get(line[IDX_PCDF_PNAME]);
@@ -235,7 +234,12 @@ public abstract class TcMibLoader extends TmMibLoader {
                     thr.ack = arg;
                     break;
                 }
-            } else if (!"P".equals(type)) {
+            } else if ("P".equals(type)) {
+                byte[] binary = new byte[(sizeInBits >> 3) + 1];
+                FixedValueEntry fve = new FixedValueEntry(getString(line, IDX_PCDF_PNAME, null), binary, sizeInBits);
+                fve.setLocation(ReferenceLocationType.CONTAINER_START, getInt(line, IDX_PCDF_BIT));
+                container.addEntry(fve);
+            } else {
                 throw new MibLoadException(ctx, "Invalid PCDF_TYPE=" + type);
             }
         }
