@@ -491,6 +491,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             String pname = mp.name();
             // TODO PCF valid
             Parameter p = new Parameter(pname);
+            p.setPersistent(true);
             p.setShortDescription(mp.pcf.descr);
             p.setParameterType(mp.ptype);
             if (mp.pcf.pid != -1) {
