@@ -1,3 +1,9 @@
+Version 0.4.0 
+- all parameters are marked as persistent
+- insert fixed entries into the TC headers in case the pcdf entries of type 'P'( = other packet parameter whose value is automatically set by
+the SCOS-2000 command subsystem (e.g. packet length, source sequence counters)) were encountered. 
+  Previously these entries were skipped causing a bug if the last entry in the TC header was of this type. 
+
 Version 0.3.0 released 28-Sep-2024
 - load SCOS alphanumeric displays into Yamcs parameter lists
 
