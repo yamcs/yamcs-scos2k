@@ -1339,8 +1339,8 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 if (lvdpRecords.size() - i - 1 < vpd.grpSize) {
                     throw new MibLoadException(null,
                             "Inconsistency in vpd file, for parameter " + vpd.name + " on position " + vpd.pos
-                                    + " grp size is " + vpd.grpSize + " but there are only " + i
-                                    + " positions left until the end of the structure");
+                                    + ": group size is " + vpd.grpSize + " but there are only " + (lvdpRecords.size() - i - 1)
+                                    + " records left for this parameter ");
                 }
                 if (vpd.grpSize == 1) {
                     i++;
