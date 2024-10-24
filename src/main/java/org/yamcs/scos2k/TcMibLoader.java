@@ -998,7 +998,8 @@ public abstract class TcMibLoader extends TmMibLoader {
                             getAlgoInput(PARA_NAME_APID, "sentApid"),
                             getAlgoInput(PARA_NAME_SEQCOUNT, "sentApid"),
                             getAlgoInput(PARA_NAME_PUS1_APID, "rcvdApid"),
-                            getAlgoInput(PARA_NAME_PUS1_SEQCOUNT, "rcvdSeq")));
+                            getAlgoInput(PARA_NAME_PUS1_SEQCOUNT, "rcvdSeq"),
+                            getAlgoInput(PARA_NAME_PUS_STYPE, "reportSubType")));
             alg.setOutputList(Collections.emptyList());
             int verificationStage = switch (stage) {
             case "Acceptance" -> 1;
