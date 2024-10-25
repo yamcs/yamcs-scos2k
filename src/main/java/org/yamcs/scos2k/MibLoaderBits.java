@@ -299,11 +299,11 @@ public class MibLoaderBits {
             Parameter pus1SeqCount = spaceSystem.getParameter(PARA_NAME_PUS1_SEQCOUNT);
             if (pus1SeqCount == null) {
                 pus1SeqCount = new Parameter(PARA_NAME_PUS1_SEQCOUNT);
-                pus1SeqCount.setParameterType(getUnsignedParameterType(spaceSystem, 16));
+                pus1SeqCount.setParameterType(getUnsignedParameterType(spaceSystem, 14));
                 spaceSystem.addParameter(pus1SeqCount);
             }
             container.addEntry(
-                    new ParameterEntry(8 * pus1DataOffset + 16, ReferenceLocationType.CONTAINER_START, pus1SeqCount));
+                    new ParameterEntry(8 * pus1DataOffset + 18, ReferenceLocationType.CONTAINER_START, pus1SeqCount));
         }
 
         spaceSystem.addSequenceContainer(container);
