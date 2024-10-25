@@ -1,3 +1,6 @@
+Version 0.4.1 
+- fixed the PUS1 verifier
+
 Version 0.4.0 
 - all parameters are marked as persistent
 - insert fixed entries into the TC headers in case the pcdf entries of type 'P'( = other packet parameter whose value is automatically set by
