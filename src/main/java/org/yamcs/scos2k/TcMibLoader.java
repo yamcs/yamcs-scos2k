@@ -432,7 +432,15 @@ public abstract class TcMibLoader extends TmMibLoader {
                     arg.setName(name + "_" + i);
                 }
                 abstractMc.addArgument(arg);
-                mc.addArgumentAssignment(new ArgumentAssignment(arg.getName(), cdf.value));
+                String value = cdf.value;
+                if ("D".equals(cdf.inter)) {
+                    value = cdf.cpc.defval;
+                }
+                if (value == null) {
+                    throw new MibLoadException(ctx, "parameter=" + arg.getName()
+                            + " does not have a default value (expected due to its eltype=F)");
+                }
+                mc.addArgumentAssignment(new ArgumentAssignment(arg.getName(), value));
             } else {
                 throw new MibLoadException(ctx, "parameter with CDF_ELTYPE=" + cdf.eltype + " not supported");
             }

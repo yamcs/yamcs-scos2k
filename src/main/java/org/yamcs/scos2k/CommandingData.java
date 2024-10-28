@@ -334,6 +334,13 @@ public class CommandingData {
         String tmid;
 
         int vplb = -1;
+
+        @Override
+        public String toString() {
+            return "CdfRecord [eltype=" + eltype + ", descr=" + descr + ", ellen=" + ellen + ", position=" + position
+                    + ", grpsize=" + grpsize + ", cpc=" + cpc + ", inter=" + inter + ", value=" + value + ", tmid="
+                    + tmid + ", vplb=" + vplb + "]";
+        }
     }
 
     static class TcHeaderRecord {
