@@ -445,6 +445,7 @@ public abstract class TcMibLoader extends TmMibLoader {
     private Argument createArgument(CdfRecord cdf) {
         CpcRecord cpc = cdf.cpc;
         Argument arg = new Argument(cpc.pname);
+        arg.setShortDescription(cpc.descr);
         ArgumentType.Builder<?> argType;
 
         if ("C".equals(cpc.categ)) {
@@ -612,7 +613,7 @@ public abstract class TcMibLoader extends TmMibLoader {
             checkMandatory(line, IDX_CPC_PNAME, IDX_CPC_PTC, IDX_CPC_PFC);
             CpcRecord cpc = new CpcRecord();
             cpc.pname = line[IDX_CPC_PNAME];
-            cpc.descr = getString(line, IDX_CPC_PNAME, null);
+            cpc.descr = getString(line, IDX_CPC_DESCR, null);
             cpc.pfc = getInt(line, IDX_CPC_PFC);
             cpc.ptc = getInt(line, IDX_CPC_PTC);
             cpc.unit = getString(line, IDX_CPC_UNIT, null);
