@@ -191,6 +191,11 @@ public class CommandingData {
          */
         int obtid;
 
+        /**
+         * returns size in bits or -1 if the argument is not fixed size
+         */
+
+
         @Override
         public String toString() {
             return "CpcRecord [pname=" + pname + ", descr=" + descr + ", ptc=" + ptc + ", pfc=" + pfc + ", dispfmt="

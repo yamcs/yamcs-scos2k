@@ -217,7 +217,6 @@ public class MibLoaderBits {
         throw new MibLoadException(ctx, "Unknown parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
     }
 
-
     /**
      * Creates the root CCSDS container containing the APID, TYPE and SUBTYPE and a list of sub-containers one for each
      * type
@@ -294,7 +293,6 @@ public class MibLoaderBits {
 
             container.addEntry(
                     new ParameterEntry(8 * pus1DataOffset + 5, ReferenceLocationType.CONTAINER_START, pus1Apid));
-
 
             Parameter pus1SeqCount = spaceSystem.getParameter(PARA_NAME_PUS1_SEQCOUNT);
             if (pus1SeqCount == null) {
@@ -384,4 +382,98 @@ public class MibLoaderBits {
         }
     }
 
+    static int sizeInBits(int ptc, int pfc) {
+        if (ptc == 1) {
+            return switch (pfc) {
+            case 0 -> 1;
+            default -> -1;
+            };
+        } else if (ptc == 2) {
+            return pfc;
+        } else if (ptc == 3 || ptc == 4) {
+            if (pfc < 13) {
+                return pfc + 4;
+            } else if (pfc == 13) {
+                return 24;
+            } else if (pfc == 14) {
+                return 32;
+            } else if (pfc == 15) {
+                return 48;
+            } else if (pfc == 16) {
+                return 64;
+            }
+        } else if (ptc == 5) {
+            return switch (pfc) {
+            case 1 -> 32;
+            case 2 -> 64;
+            case 3 -> 32;
+            case 4 -> 48;
+            default -> -1;
+            };
+        } else if (ptc == 6) {
+            if (pfc == 0) {
+                return -1;
+            } else {
+                return pfc;
+            }
+        } else if (ptc == 7 || ptc == 8) {
+            if (pfc == 0) {
+                return -1;
+            } else {
+                return pfc * 8;
+            }
+        } else if (ptc == 9) {
+            return switch (pfc) {
+            case 1 -> 48;
+            case 2 -> 64;
+            case 3 -> 8;
+            case 4 -> 16;
+            case 5 -> 24;
+            case 6 -> 32;
+            case 7 -> 16;
+            case 8 -> 24;
+            case 9 -> 32;
+            case 10 -> 40;
+            case 11 -> 24;
+            case 12 -> 32;
+            case 13 -> 40;
+            case 14 -> 48;
+            case 15 -> 32;
+            case 16 -> 40;
+            case 17 -> 48;
+            case 18 -> 56;
+            case 30 -> 64;
+            default -> -1;
+            };
+        } else if (ptc == 10) {
+            return switch (pfc) {
+            case 3 -> 8;
+            case 4 -> 16;
+            case 5 -> 24;
+            case 6 -> 32;
+            case 7 -> 16;
+            case 8 -> 24;
+            case 9 -> 32;
+            case 10 -> 40;
+            case 11 -> 24;
+            case 12 -> 32;
+            case 13 -> 40;
+            case 14 -> 48;
+            case 15 -> 32;
+            case 16 -> 40;
+            case 17 -> 48;
+            case 18 -> 56;
+            default -> -1;
+            };
+
+        } else if (ptc == 11) {
+            if (pfc == 0) {
+                return -1;
+            } else {
+                return pfc;
+            }
+        }
+
+        return -1;
+    }
 }
