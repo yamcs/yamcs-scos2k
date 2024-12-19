@@ -10,13 +10,12 @@ import org.yamcs.utils.ValueUtility;
 import org.yamcs.xtce.Algorithm;
 import org.yamcs.xtce.DataEncoding;
 import org.yamcs.mdb.AbstractDataDecoder;
+import org.yamcs.mdb.ContainerProcessingContext;
 import org.yamcs.mdb.XtceProcessingException;
 
 /**
  * Decodes absolute times in CUC (CCSDS Unsegmented Code)
  *  or CDS (CCSDS Segmented Code) using the (ptc,pfc) as defined in SCOS2k MIB 
- * 
- * @author nm
  *
  */
 public class TimeDecoder extends AbstractDataDecoder {
@@ -50,7 +49,7 @@ public class TimeDecoder extends AbstractDataDecoder {
      * returns the time as SINT64 representing milliseconds since the epoch
      */
     @Override
-    public Value extractRaw(DataEncoding de, BitBuffer buffer) {
+    public Value extractRaw(DataEncoding de, ContainerProcessingContext pcontext, BitBuffer buffer) {
         long t;
         try {
             t = ctd.decode(() -> buffer.getByte());
