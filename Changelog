@@ -1,5 +1,6 @@
-Version 0.4.1 
+Version 0.5.0 
 - fixed the PUS1 verifier
+- implemented aggregates for command arguments using groups
 
 Version 0.4.0 
 - all parameters are marked as persistent
