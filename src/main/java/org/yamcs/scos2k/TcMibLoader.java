@@ -16,6 +16,7 @@ import org.yamcs.scos2k.CommandingData.CdfRecord;
 import org.yamcs.scos2k.CommandingData.CpcRecord;
 import org.yamcs.scos2k.MibLoaderBits.MibLoadException;
 import org.yamcs.scos2k.MonitoringData.PrfRecord;
+import org.yamcs.tctm.pus.PusCommandPostprocessor;
 import org.yamcs.scos2k.CommandingData.TcHeaderRecord;
 import org.yamcs.utils.StringConverter;
 import org.yamcs.xtce.AggregateArgumentType;
@@ -28,6 +29,7 @@ import org.yamcs.xtce.ArgumentType;
 import org.yamcs.xtce.ArrayArgumentType;
 import org.yamcs.xtce.BaseDataType;
 import org.yamcs.xtce.BinaryArgumentType;
+import org.yamcs.xtce.BooleanDataType;
 import org.yamcs.xtce.CheckWindow;
 import org.yamcs.xtce.CheckWindow.TimeWindowIsRelativeToType;
 import org.yamcs.xtce.CommandContainer;
@@ -44,14 +46,17 @@ import org.yamcs.xtce.FixedIntegerValue;
 import org.yamcs.xtce.FixedValueEntry;
 import org.yamcs.xtce.FloatArgumentType;
 import org.yamcs.xtce.FloatDataEncoding;
+import org.yamcs.xtce.FloatDataType;
 import org.yamcs.xtce.InputParameter;
 import org.yamcs.xtce.IntegerArgumentType;
 import org.yamcs.xtce.IntegerDataEncoding;
 import org.yamcs.xtce.MatchCriteria;
 import org.yamcs.xtce.Member;
 import org.yamcs.xtce.IntegerDataEncoding.Encoding;
+import org.yamcs.xtce.IntegerDataType;
 import org.yamcs.xtce.IntegerValue;
 import org.yamcs.xtce.MetaCommand;
+import org.yamcs.xtce.NameDescription;
 import org.yamcs.xtce.NumericDataEncoding;
 import org.yamcs.xtce.NumericParameterType;
 import org.yamcs.xtce.OperatorType;
@@ -63,12 +68,16 @@ import org.yamcs.xtce.SequenceEntry;
 import org.yamcs.xtce.SequenceEntry.ReferenceLocationType;
 import org.yamcs.xtce.Significance;
 import org.yamcs.xtce.Significance.Levels;
+import org.yamcs.xtce.util.ArgumentReference;
+import org.yamcs.xtce.util.NameReference;
+import org.yamcs.xtce.util.ParameterReference;
 import org.yamcs.xtce.SplineCalibrator;
 import org.yamcs.xtce.SplinePoint;
 import org.yamcs.xtce.TransmissionConstraint;
 import org.yamcs.xtce.UnitType;
 import org.yamcs.xtce.ValueEnumeration;
 import org.yamcs.xtce.ValueEnumerationRange;
+import org.yamcs.xtce.XtceDb;
 
 import static org.yamcs.scos2k.MibLoaderBits.*;
 
@@ -1097,9 +1106,9 @@ public abstract class TcMibLoader extends TmMibLoader {
     final static int IDX_CVS_SPID = 5;
     final static int IDX_CVS_UNCERTAINTY = 6;
 
-    private Map<String, CommandVerifier> loadCvs() {
+    private Map<String, CommandVerifierInfo> loadCvs() {
         Map<String, List<MatchCriteria>> paramConditions = loadCve();
-        Map<String, CommandVerifier> verifiers = new HashMap<>();
+        Map<String, CommandVerifierInfo> verifiers = new HashMap<>();
         switchTo("cvs");
         String[] line;
         while ((line = nextLine()) != null) {
@@ -1122,15 +1131,15 @@ public abstract class TcMibLoader extends TmMibLoader {
             default -> "Progress_" + type;
             };
 
-            CommandVerifier cv;
+            CommandVerifierInfo cv;
             if ("R".equals(source)) {
-                cv = createPusVerifier(stage, checkWindow);
+                cv = new Pus1VerifierRecord(stage, checkWindow);
             } else if ("V".equals(source)) {
                 List<MatchCriteria> l = paramConditions.get(id);
                 if (l == null) {
                     throw new MibLoadException(ctx, "No CVE record found for CVS_ID=" + id);
                 }
-                cv = new CommandVerifier(Type.CONTAINER, type, checkWindow);
+                cv = new CommandVerifierRecord(new CommandVerifier(Type.CONTAINER, type, checkWindow));
 
             } else {
                 throw new MibLoadException(ctx,
@@ -1141,7 +1150,7 @@ public abstract class TcMibLoader extends TmMibLoader {
         return verifiers;
     }
 
-    private CommandVerifier createPusVerifier(String stage, CheckWindow checkWindow) {
+    private CommandVerifier createPusVerifier(MetaCommand mc, String stage, CheckWindow checkWindow) {
         CommandVerifier cv = new CommandVerifier(Type.ALGORITHM, stage, checkWindow);
         CustomAlgorithm alg = (CustomAlgorithm) spaceSystem.getAlgorithm("PUS_Verifier-" + stage);
         if (alg == null) {
@@ -1149,11 +1158,12 @@ public abstract class TcMibLoader extends TmMibLoader {
             alg.setScope(Scope.COMMAND_VERIFICATION);
             alg.setInputList(
                     Arrays.asList(
-                            getAlgoInput(PARA_NAME_APID, "sentApid"),
-                            getAlgoInput(PARA_NAME_SEQCOUNT, "sentApid"),
-                            getAlgoInput(PARA_NAME_PUS1_APID, "rcvdApid"),
-                            getAlgoInput(PARA_NAME_PUS1_SEQCOUNT, "rcvdSeq"),
-                            getAlgoInput(PARA_NAME_PUS_STYPE, "reportSubType")));
+                            getAlgoApidInput(mc, "sentApid"),
+                            getAlgoCmdHistInput(PusCommandPostprocessor.CCSDS_SEQCOUNT_PARA_NAME,
+                                    "sentSeq"),
+                            getAlgoParaInput(PARA_NAME_PUS1_APID, "rcvdApid"),
+                            getAlgoParaInput(PARA_NAME_PUS1_SEQCOUNT, "rcvdSeq"),
+                            getAlgoParaInput(PARA_NAME_PUS_STYPE, "reportSubType")));
             alg.setOutputList(Collections.emptyList());
             int verificationStage = switch (stage) {
             case "Acceptance" -> 1;
@@ -1176,7 +1186,7 @@ public abstract class TcMibLoader extends TmMibLoader {
     final static int IDX_CVP_CVSID = 2;
 
     private void loadCvp() {
-        Map<String, CommandVerifier> verifiers = loadCvs();
+        Map<String, CommandVerifierInfo> verifiers = loadCvs();
         switchTo("cvp");
         String[] line;
         while ((line = nextLine()) != null) {
@@ -1191,20 +1201,29 @@ public abstract class TcMibLoader extends TmMibLoader {
                 throw new MibLoadException(ctx,
                         "Verifier profile reference to unknown command CVP_TASK=" + line[IDX_CVP_TASK]);
             }
-            CommandVerifier cv = verifiers.get(line[IDX_CVP_CVSID]);
+            CommandVerifierInfo cv = verifiers.get(line[IDX_CVP_CVSID]);
             if (cv == null) {
                 continue;
                 // throw new MibLoadException(ctx,
                 // "Verifier profile makes reference to unknown CVP_CVSID=" + line[IDX_CVP_CVSID]);
             }
-            mc.addVerifier(cv);
+            if (cv instanceof CommandVerifierRecord cvr) {
+                mc.addVerifier(cvr.cmdVerifier);
+            } else if (cv instanceof Pus1VerifierRecord pvr) {
+                mc.addVerifier(createPusVerifier(mc, pvr.stage, pvr.checkWindow));
+            }
         }
     }
 
-    InputParameter getAlgoInput(String paraName, String inputName) {
+    InputParameter getAlgoParaInput(String paraName, String inputName) {
         Parameter p = spaceSystem.getParameter(paraName);
         if (p == null) {
-            throw new MibLoadException("Cannot find parameter " + paraName);
+            if (paraName.startsWith(XtceDb.YAMCS_SPACESYSTEM_NAME)) {
+                p = new Parameter(NameDescription.getName(paraName));
+                p.setQualifiedName(paraName);
+            } else {
+                throw new MibLoadException("Cannot find parameter " + paraName);
+            }
         }
         var ip = new InputParameter(new ParameterInstanceRef(p));
         ip.setInputName(inputName);
@@ -1213,4 +1232,67 @@ public abstract class TcMibLoader extends TmMibLoader {
         return ip;
     }
 
+    // find the APID argument of the command sent, required for PUS1 verifier
+    InputParameter getAlgoApidInput(MetaCommand cmd, String inputName) {
+        var baseCmd = cmd.getBaseMetaCommand();
+        if (baseCmd == null) {
+            throw new MibLoadException("Command " + cmd.getName() + " has no base command");
+        }
+        var offset = 0;
+        Argument apidArg = null;
+        for (var se : baseCmd.getCommandContainer().getEntryList()) {
+            if (se instanceof FixedValueEntry fve) {
+                offset += fve.getSizeInBits();
+                continue;
+            } else if (se instanceof ArgumentEntry argEntry) {
+                var arg = argEntry.getArgument();
+                var argType = arg.getArgumentType();
+                int size;
+                if (argType instanceof IntegerDataType dt) {
+                    size = dt.getEncoding().getSizeInBits();
+                } else if (argType instanceof FloatDataType dt) {
+                    size = dt.getEncoding().getSizeInBits();
+                } else if (argType instanceof BooleanDataType dt) {
+                    size = dt.getEncoding().getSizeInBits();
+                } else {
+                    throw new MibLoadException("Unexpected argument data type for argument " + arg);
+                }
+                if (offset == 5 && size == 11) {
+                    apidArg = arg;
+                    break;
+                }
+                offset += size;
+            } else {
+                throw new MibLoadException("Unexpected container entry " + se);
+            }
+        }
+
+        if (apidArg == null) {
+            throw new MibLoadException(
+                    "Cannot find APID argument for command " + cmd.getName() + " or its parent");
+        }
+        ArgumentInstanceRef argInstRef = new ArgumentInstanceRef(apidArg, false);
+
+        return new InputParameter(argInstRef, inputName);
+    }
+
+    InputParameter getAlgoCmdHistInput(String name, String inputName) {
+        ParameterReference paraRef = new ParameterReference(XtceDb.YAMCS_CMDHIST_SPACESYSTEM_NAME + "/" + name);
+        spaceSystem.addUnresolvedReference(paraRef);
+
+        final ParameterInstanceRef parameterInstance = new ParameterInstanceRef();
+        paraRef.addResolvedAction(nd -> {
+            parameterInstance.setParameter((Parameter) nd);
+        });
+        return new InputParameter(parameterInstance, inputName);
+    }
+
+    interface CommandVerifierInfo {
+    }
+
+    record CommandVerifierRecord(CommandVerifier cmdVerifier) implements CommandVerifierInfo {
+    }
+
+    record Pus1VerifierRecord(String stage, CheckWindow checkWindow) implements CommandVerifierInfo {
+    }
 }

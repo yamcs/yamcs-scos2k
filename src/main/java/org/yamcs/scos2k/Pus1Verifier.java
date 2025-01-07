@@ -75,9 +75,9 @@ public class Pus1Verifier extends AbstractAlgorithmExecutor {
 
     @Override
     public AlgorithmExecutionResult execute(long acqTime, long genTime, ProcessingData pdata) {
-
         for (int i = 0; i < 5; i++) {
             if (inputValues.get(i) == null) {
+                log.trace("Returning NO_RESULT because no value available for input {}", i);
                 return NO_RESULT;
             }
         }
@@ -90,6 +90,8 @@ public class Pus1Verifier extends AbstractAlgorithmExecutor {
         int reportSubType = inputValues.get(4).getRawValue().getUint32Value();
 
         if (sentApid != rcvdApid || sentSeq != rcvdSeq) {
+            log.trace("sentApid: {}, rvbdApid: {}, sentSeq: {}, rcvdSeq: {}; returning NO_RESULT", sentApid, rcvdApid,
+                    sentSeq, rcvdSeq);
             return NO_RESULT;
         }
 
