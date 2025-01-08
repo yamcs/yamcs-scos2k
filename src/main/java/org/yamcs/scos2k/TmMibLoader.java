@@ -848,10 +848,14 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     log.warn("Cannot find label for raw value {} for enumerated parameter type associated to {}: {}",
                             rv, mp.name(), ptypeb);
                 } else {
-                    ptypeb.addAlarm(contextMatch, label, level);
+                    var enumAlarm = ptypeb.createOrGetAlarm(contextMatch);
+                    enumAlarm.addAlarm(label, AlarmLevels.NORMAL);
+                    enumAlarm.setDefaultAlarmLevel(level);
                 }
             } else {
-                ptypeb.addAlarm(contextMatch, r.lvalu, level);
+                var enumAlarm = ptypeb.createOrGetAlarm(contextMatch);
+                enumAlarm.addAlarm(r.lvalu, AlarmLevels.NORMAL);
+                enumAlarm.setDefaultAlarmLevel(level);
             }
             prev = r;
         }
@@ -1339,7 +1343,8 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 if (lvdpRecords.size() - i - 1 < vpd.grpSize) {
                     throw new MibLoadException(null,
                             "Inconsistency in vpd file, for parameter " + vpd.name + " on position " + vpd.pos
-                                    + ": group size is " + vpd.grpSize + " but there are only " + (lvdpRecords.size() - i - 1)
+                                    + ": group size is " + vpd.grpSize + " but there are only "
+                                    + (lvdpRecords.size() - i - 1)
                                     + " records left for this parameter ");
                 }
                 if (vpd.grpSize == 1) {
