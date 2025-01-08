@@ -20,6 +20,7 @@ import org.yamcs.tctm.pus.PusCommandPostprocessor;
 import org.yamcs.scos2k.CommandingData.TcHeaderRecord;
 import org.yamcs.utils.StringConverter;
 import org.yamcs.xtce.AggregateArgumentType;
+import org.yamcs.xtce.AncillaryData;
 import org.yamcs.xtce.Algorithm.Scope;
 import org.yamcs.xtce.Argument;
 import org.yamcs.xtce.ArgumentAssignment;
@@ -68,8 +69,6 @@ import org.yamcs.xtce.SequenceEntry;
 import org.yamcs.xtce.SequenceEntry.ReferenceLocationType;
 import org.yamcs.xtce.Significance;
 import org.yamcs.xtce.Significance.Levels;
-import org.yamcs.xtce.util.ArgumentReference;
-import org.yamcs.xtce.util.NameReference;
 import org.yamcs.xtce.util.ParameterReference;
 import org.yamcs.xtce.SplineCalibrator;
 import org.yamcs.xtce.SplinePoint;
@@ -348,6 +347,15 @@ public abstract class TcMibLoader extends TmMibLoader {
                     mc.addVerifier(cv);
                 }
             }
+            String hipri = getString(line, IDX_CCF_HIPRI, "N");
+            if ("Y".equalsIgnoreCase(hipri)) {
+                int mapId = getInt(line, IDX_CCF_MAPID);
+                if (mapId < 0 || mapId > 15) {
+                    throw new MibLoadException(ctx, "Invalid CCF_MAPID" + mapId);
+                }
+                mc.addAncillaryData(new AncillaryData(AncillaryData.KEY_CCSDS_MAP_ID, Integer.toString(mapId)));
+            }
+
             addArguments(abstractMc, mc);
             if (abstractMc != null) {
                 spaceSystem.addMetaCommand(abstractMc);
@@ -1131,21 +1139,38 @@ public abstract class TcMibLoader extends TmMibLoader {
             default -> "Progress_" + type;
             };
 
-            CommandVerifierInfo cv;
+            CommandVerifierInfo cvInfo;
             if ("R".equals(source)) {
-                cv = new Pus1VerifierRecord(stage, checkWindow);
+                cvInfo = new Pus1VerifierRecord(stage, checkWindow);
             } else if ("V".equals(source)) {
                 List<MatchCriteria> l = paramConditions.get(id);
                 if (l == null) {
                     throw new MibLoadException(ctx, "No CVE record found for CVS_ID=" + id);
                 }
-                cv = new CommandVerifierRecord(new CommandVerifier(Type.CONTAINER, type, checkWindow));
+                var cv = new CommandVerifier(Type.MATCH_CRITERIA, type, checkWindow);
+                if (l.size() == 1) {
+                    cv.setMatchCriteria(l.get(0));
+                } else {
+                    var compList = new ComparisonList();
+                    for (var mc : l) {
+                        if (mc instanceof Comparison c) {
+                            compList.addComparison(c);
+                        } else if (mc instanceof ComparisonList cl) {
+                            for (var c : cl.getComparisonList()) {
+                                compList.addComparison(c);
+                            }
+                        }
+                    }
+                    cv.setMatchCriteria(compList);
+                }
+
+                cvInfo = new CommandVerifierRecord(cv);
 
             } else {
                 throw new MibLoadException(ctx,
                         "Invalid value '" + source + "' for CVS_SOURCE. Expected R or V");
             }
-            verifiers.put(id, cv);
+            verifiers.put(id, cvInfo);
         }
         return verifiers;
     }
