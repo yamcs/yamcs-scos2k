@@ -92,7 +92,7 @@ public class OLExecutor extends AbstractAlgorithmExecutor {
             execCtx.getProcessorData().getEventProducer()
                     .sendWarning(getAlgorithm().getName(), "Cannot convert raw value from algorithm output "
                             + "'" + value + "' of type " + value.getClass() + " into " + de);
-            out.setAcquisitionStatus(AcquisitionStatus.INVALID);
+            out.setInvalid();
         } else {
             out.setRawValue(rawValue);
             parameterTypeProcessor.calibrate(out);
