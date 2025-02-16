@@ -1,3 +1,6 @@
+Version 0.6.0 
+- updated Yamcs versions to support arrays in command arguments
+
 Version 0.5.0 
 - fixed the PUS1 verifier
 - implemented aggregates for command arguments using groups
