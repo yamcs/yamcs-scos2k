@@ -37,11 +37,17 @@
 			<name>Yamcs Team</name>
 		</developer>
 	</developers>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.yamcs</groupId>
 			<artifactId>yamcs-core</artifactId>
 			<version>5.11.1</version>
+			<scope>provided</scope>
 		</dependency>
 
 		<dependency>
@@ -56,14 +62,40 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.10.1</version>
+				<version>3.13.0</version>
 				<configuration>
 					<release>17</release>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.yamcs</groupId>
+				<artifactId>yamcs-maven-plugin</artifactId>
+				<version>1.3.5</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>detect</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>bundle-extension</id>
+						<phase>package</phase>
+						<goals>
+							<goal>bundle</goal>
+						</goals>
+						<configuration>
+							<includeDefaultWrappers>false</includeDefaultWrappers>
+							<includeConfiguration>false</includeConfiguration>
+							<formats>
+								<format>tar.gz</format>
+							</formats>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
-	
+
 	<distributionManagement>
 		<snapshotRepository>
 			<id>ossrh</id>
@@ -135,8 +167,7 @@
 							<author>false</author>
 							<breakiterator>true</breakiterator>
 							<links>
-								<link>
-									https://docs.yamcs.org/javadoc/yamcs/latest/</link>
+								<link>https://docs.yamcs.org/javadoc/yamcs/latest/</link>
 							</links>
 							<additionalOptions>
 								<additionalOption>-Xdoclint:none</additionalOption>
