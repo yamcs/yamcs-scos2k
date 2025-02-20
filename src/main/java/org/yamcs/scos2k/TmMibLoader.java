@@ -1048,6 +1048,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             pid.spid = getLong(line, IDX_PID_SPID);
             long tpsd = getLong(line, IDX_PID_TPSD, -1);
             pid.dfhsize = getInt(line, IDX_PID_DHHSIZE);
+            pid.descr = getString(line, IDX_PID_DESCR, null);
             if (tpsd != -1) {
                 List<PidRecord> l = pidVpdRecords.computeIfAbsent(tpsd, k -> new ArrayList<>());
                 l.add(pid);
@@ -1083,6 +1084,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     name = name + " spid_" + pid.spid;
                 }
                 seq = createLevel1Subcontainer(spaceSystem, apid, type, stype, name, pus1DataOffset);
+                seq.setShortDescription(pid.descr);
                 spidToSeqContainer.put(pid.spid, seq);
             } else {
                 seq = createLevel1Subcontainer(spaceSystem, apid, type, stype, name, pus1DataOffset);
@@ -1136,6 +1138,10 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     }
                     SequenceContainer seq1 = new SequenceContainer(name);
                     seq1.setBaseContainer(seq);
+                    seq1.setShortDescription(pid.descr);
+                    if (generatePusNamespace) {
+                        seq1.addAlias(PUS_NAMESPACE, String.format("TM(%d,%d)", type, stype));
+                    }
                     ComparisonList cl = new ComparisonList();
                     if (pi1 != null) {
                         cl.addComparison(
@@ -1151,6 +1157,9 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     spaceSystem.addSequenceContainer(seq1);
                     spidToSeqContainer.put(pid.spid, seq1);
                 }
+            }
+            if (generatePusNamespace) {
+                seq.addAlias(PUS_NAMESPACE, String.format("TM(%d,%d)", type, stype));
             }
         }
         loadVpd();

@@ -43,6 +43,9 @@ import org.yamcs.xtce.IntegerDataEncoding.Encoding;
 import org.yamcs.xtce.TimeEpoch.CommonEpochs;
 
 public abstract class BaseMibLoader extends AbstractFileLoader {
+    // used to generate aliases of shape TC(20,1)
+    static final String PUS_NAMESPACE = "PUS";
+    // used to generate onboard parameter ids
     static final String OB_PID_NAMESPACE = "OB:PID";
     static final Pattern MIB_PNAME = Pattern.compile("\\w+");
 
@@ -68,10 +71,12 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
     String ssName;
 
     boolean strict = false;
+    protected boolean generatePusNamespace;
 
     public BaseMibLoader(YConfiguration config) throws ConfigurationException {
         super(config.getString("path"));
 
+        this.generatePusNamespace = config.getBoolean("generatePusNamespace", true);
         ssName = config.getString("spaceSystemName", "MIB");
         String epoch = config.getString("epoch", "1970-01-01T00:00:00");
         try {

@@ -380,6 +380,12 @@ public class MonitoringData {
     static class TpcfRecord {
         String name;
         int size;
+
+        @Override
+        public String toString() {
+            return "TpcfRecord [name=" + name + ", size=" + size + "]";
+        }
+
     }
 
     static class DeducedParameter {

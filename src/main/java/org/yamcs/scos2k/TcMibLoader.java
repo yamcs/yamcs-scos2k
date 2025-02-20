@@ -307,9 +307,15 @@ public abstract class TcMibLoader extends TmMibLoader {
                 mc.setBaseMetaCommand(abstractMc);
                 mc1 = abstractMc;
             }
+            var descr = line[IDX_CCF_DESCR];
+            var descr2 = getString(line, IDX_CCF_DESCR2, null);
+            if (generatePusNamespace) {
+                mc.setShortDescription(descr2);
+            } else {
+                mc.setShortDescription(descr);
+                mc.setLongDescription(descr2);
+            }
 
-            mc.setShortDescription(line[IDX_CCF_DESCR]);
-            mc.setLongDescription(getString(line, IDX_CCF_DESCR2, null));
             String criticality = getString(line, IDX_CCF_CRITICAL, "N");
             Significance signific = "Y".equalsIgnoreCase(criticality) ? SIGNIF_CRITICAL : SIGNIF_NONE;
             mc.setDefaultSignificance(signific);
@@ -337,6 +343,11 @@ public abstract class TcMibLoader extends TmMibLoader {
                     mc1.addArgumentAssignment(new ArgumentAssignment(thr.ack.getName(), Integer.toString(ack)));
                 }
             }
+
+            if (generatePusNamespace && type != -1 && subType != -1) {
+                mc.addAlias(PUS_NAMESPACE, String.format("TC(%d,%d) %s", type, subType, descr));
+            }
+
             if (type == 17 && subType == 1) {
                 // add PUS(17,2) verifier
                 SequenceContainer sc = findContainer(17, 2);
