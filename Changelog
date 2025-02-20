@@ -1,4 +1,7 @@
-Version 0.6.0 
+Version 0.7.0 released 20-Feb-2024
+- added an option generatePusNamespace enabled by default that causes names such as TM(5,25)_xyz or TC(3,11)_xyz to be associated to TM containers and commands, where xyz is the short description. Moved the second description into the short description
+
+Version 0.6.0 released 16-Feb-2024
 - updated Yamcs versions to support arrays in command arguments
 
 Version 0.5.0 
