@@ -1271,11 +1271,15 @@ public abstract class TcMibLoader extends TmMibLoader {
     // find the APID argument of the command sent, required for PUS1 verifier
     InputParameter getAlgoApidInput(MetaCommand cmd, String inputName) {
         var baseCmd = cmd.getBaseMetaCommand();
+        if (baseCmd != null && baseCmd.getName().endsWith("_abstract")) {
+            baseCmd = baseCmd.getBaseMetaCommand();
+        }
         if (baseCmd == null) {
             throw new MibLoadException("Command " + cmd.getName() + " has no base command");
         }
         var offset = 0;
         Argument apidArg = null;
+        System.out.println("cmd: " + cmd.getName() + "  baseCmd: " + baseCmd.getName());
         for (var se : baseCmd.getCommandContainer().getEntryList()) {
             if (se instanceof FixedValueEntry fve) {
                 offset += fve.getSizeInBits();
