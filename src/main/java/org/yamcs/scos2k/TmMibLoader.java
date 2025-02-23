@@ -96,8 +96,8 @@ public abstract class TmMibLoader extends BaseMibLoader {
     // default size in bytes of the size tag for variable length strings and bytestrings
     private int vblParamLengthBytes = 1;
     // where to extract the type and subType from the packet - in bytes
-    int typeOffset = 0;
-    int subTypeOffset = 0;
+    int typeOffset = 7;
+    int subTypeOffset = 8;
 
     // where the data starts in the PUS1 packets - used to create the parameters for the command verifiers
     int pus1DataOffset;
@@ -111,8 +111,8 @@ public abstract class TmMibLoader extends BaseMibLoader {
         if (vblParamLengthBytes < 1) {
             throw new ConfigurationException("vblParamLengthBytes for TM cannot be less than 1");
         }
-        typeOffset = tmConf.getInt("typeOffset");
-        subTypeOffset = tmConf.getInt("subTypeOffset");
+        typeOffset = tmConf.getInt("typeOffset", 7);
+        subTypeOffset = tmConf.getInt("subTypeOffset", 8);
         pus1DataOffset = tmConf.getInt("pus1DataOffset");
 
     }
