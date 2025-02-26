@@ -74,6 +74,11 @@ public class MibLoaderBits {
             this.ctx = ctx;
         }
 
+        public MibLoadException(MibLoaderContext ctx, String msg, Throwable t) {
+            super(msg, t);
+            this.ctx = ctx;
+        }
+
         public String toString() {
             if (ctx != null) {
                 return ctx.filename + ":" + ctx.lineNum + ": " + getMessage();

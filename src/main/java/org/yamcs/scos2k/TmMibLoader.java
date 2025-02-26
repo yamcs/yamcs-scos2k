@@ -469,11 +469,13 @@ public abstract class TmMibLoader extends BaseMibLoader {
             algo.setOutputList(Arrays.asList(new OutputParameter(outpara)));
             spaceSystem.addAlgorithm(algo);
         } catch (ParseException | TokenMgrError e) {
-            throw new DatabaseLoadException("Failed to parse the OL file " + f, e);
+            error(new MibLoadException(ctx, "Failed to parse the OL file " + f, e));
         } catch (IOException e) {
             throw new DatabaseLoadException(e);
         } catch (CompileException e) {
-            throw new DatabaseLoadException("Failed to compile the generated java code " + code, e);
+            error(new MibLoadException(ctx, "Failed to compile the generated java code " + code, e));
+        } catch (MibLoadException e) {
+            error(e);
         }
     }
 
