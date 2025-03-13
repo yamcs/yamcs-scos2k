@@ -182,6 +182,24 @@ public class MonitoringData {
         boolean uscon;
 
         int vplb;
+
+        /**
+         * On-board ID of the telemetry parameter. This field allows the establishment of a one-to-one correspondence
+         * between on-ground parameter ID and on-board "Parameter#" identifier (see [RD-6]).
+         * <p>
+         * It is used to identify the parameter for which values are being delivered in a PUS-compatible variable
+         * packet. The on-board parameter ID shall be unique, i.e., it is not allowed to associate several telemetry
+         * parameters to the same on-board ID. In case two parameters are associated with the same PCF_PID, the last
+         * imported one will be used by SCOS-2000.
+         * </p>
+         * <p>
+         * Value is to be left null when there is no corresponding on-board parameter identifier, e.g., ‘ground only’
+         * parameters defined by the user.
+         * </p>
+         * <p>
+         * Unsigned integer number in the range (0 ... 2^32 - 1).
+         * </p>
+         */
         public int pid;
 
         public String unit;

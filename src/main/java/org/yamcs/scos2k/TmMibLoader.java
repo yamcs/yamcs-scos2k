@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.codehaus.commons.compiler.CompileException;
@@ -47,6 +48,7 @@ import org.yamcs.xtce.ContainerEntry;
 import org.yamcs.xtce.ContextCalibrator;
 import org.yamcs.xtce.CustomAlgorithm;
 import org.yamcs.xtce.DataEncoding;
+import org.yamcs.xtce.DataSource;
 import org.yamcs.mdb.DatabaseLoadException;
 import org.yamcs.xtce.DynamicIntegerValue;
 import org.yamcs.xtce.EnumeratedParameterType;
@@ -93,6 +95,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
     Map<String, List<CurRecord>> curRecords = new HashMap<>();
     Map<Long, PidRecord> pidRecords = new HashMap<>();
     Map<Long, List<PidRecord>> pidVpdRecords = new HashMap<>();
+    Set<Long> packetsContainingWritableParameters = new HashSet<>();
     // default size in bytes of the size tag for variable length strings and bytestrings
     private int vblParamLengthBytes = 1;
     // where to extract the type and subType from the packet - in bytes
@@ -114,6 +117,10 @@ public abstract class TmMibLoader extends BaseMibLoader {
         typeOffset = tmConf.getInt("typeOffset", 7);
         subTypeOffset = tmConf.getInt("subTypeOffset", 8);
         pus1DataOffset = tmConf.getInt("pus1DataOffset");
+        if (tmConf.containsKey("packetsContainingWritableParameters")) {
+            List<Number> l = tmConf.getList("packetsContainingWritableParameters");
+            l.forEach(x -> packetsContainingWritableParameters.add(x.longValue()));
+        }
 
     }
 
@@ -1048,6 +1055,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 pid.pi2 = getUnsignedLong(line, IDX_PID_PI2_VAL);
             }
             pid.spid = getLong(line, IDX_PID_SPID);
+
             long tpsd = getLong(line, IDX_PID_TPSD, -1);
             pid.dfhsize = getInt(line, IDX_PID_DHHSIZE);
             pid.descr = getString(line, IDX_PID_DESCR, null);
@@ -1245,6 +1253,9 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 Parameter p = spaceSystem.getParameter(pname);
                 if (p == null) {
                     throw new MibLoadException(ctx, "Unknown parameter '" + pname + "'");
+                }
+                if (packetsContainingWritableParameters.contains(spid)) {
+                    p.setDataSource(DataSource.LOCAL);
                 }
                 entry = new ParameterEntry(locationInBits, ReferenceLocationType.CONTAINER_START, p);
             }

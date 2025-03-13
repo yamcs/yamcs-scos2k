@@ -1,3 +1,6 @@
+Version 0.7.1 released 13-Mar-2024
+- added an option packetsContainingWritableParameters under the TM that allows listing SIDs of packets that will be declared as Local such that they can be written via Yamcs API. Missions use these pseudo-packets to inject data from external systems
+
 Version 0.7.0 released 20-Feb-2024
 - added an option generatePusNamespace enabled by default that causes names such as TM(5,25)_xyz or TC(3,11)_xyz to be associated to TM containers and commands, where xyz is the short description. Moved the second description into the short description
 
