@@ -29,10 +29,13 @@ path (string)
     **Required** The path of the directory containing the MIB ASCII files.
 
 epoch (string)
-    One of TAI, J2000, UNIX, GPS or a UTC datestring. The epoch is used as epoch for all time parameters (PTC 9). 
+    One of TAI, J2000, UNIX, GPS, TCO or a UTC datestring. The epoch is used as epoch for all time parameters (PTC 9).
     If TAI, J2000 or GPS are used, the time is assumed to include leap seconds (which are then removed when coverting to UTC) whereas if the epoch is specified as UNIX or using a UTC datestring, the time is assumed to not include leap seconds.
     Note that internally Yamcs stores the time with leap seconds referenced to 1970-01-01 TAI epoch so when decoding the parameters it will covert the values to this internal epoch (adding the necessary leap seconds if they are not already there).
+    If TCO is specified, it mans that the on-board time has to be translated to UTC (or Yamcs time) using a time correlation service which has to be specified using the `tcoService` option.
     
+tcoService (string)
+	**Required** if epoch = TCO. The name of the time correlation service; it has to be defined in Yamcs service list.
 
 TC Options
 ----------

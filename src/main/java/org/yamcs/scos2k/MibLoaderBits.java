@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.yamcs.xtce.AggregateArgumentType;
 import org.yamcs.xtce.AggregateDataType;
+import org.yamcs.xtce.AlgorithmCalibrator;
 import org.yamcs.xtce.BinaryDataEncoding;
 import org.yamcs.xtce.Comparison;
 import org.yamcs.xtce.ComparisonList;
@@ -33,7 +34,7 @@ import org.yamcs.xtce.StringDataEncoding.SizeType;
 public class MibLoaderBits {
     static Map<Integer, IntegerParameterType> integerParameterTypes = new HashMap<>();
     static Map<Integer, IntegerArgumentType> integerArgumentTypes = new HashMap<>();
-    static final byte[] PTC9_10_SIZE_IN_BITS = new byte[] { -1, 48, 64, 8, 16, 24, 32, 16, 24, 32, 40, 24, 32, 40, 48,
+    static final byte[] PTC10_SIZE_IN_BITS = new byte[] { -1, 48, 64, 8, 16, 24, 32, 16, 24, 32, 40, 24, 32, 40, 48,
             32, 40, 48, 56 };
     static final String PARA_NAME_APID = "ccsds_apid";
     static final String PARA_NAME_SEQCOUNT = "ccsds_seqcount";
@@ -48,14 +49,16 @@ public class MibLoaderBits {
     static class MibLoaderContext {
         String filename;
         int lineNum;
+        final MibConfig conf;
 
-        MibLoaderContext(String filename, int lineNum) {
+        MibLoaderContext(MibConfig conf, String filename, int lineNum) {
+            this.conf = conf;
             this.filename = filename;
             this.lineNum = lineNum;
         }
 
         public MibLoaderContext clone() {
-            return new MibLoaderContext(filename, lineNum);
+            return new MibLoaderContext(conf, filename, lineNum);
         }
 
     }
@@ -192,27 +195,59 @@ public class MibLoaderBits {
                 return encoding;
             }
         } else if (ptc == 9) {
-            if (pfc < 0 || (pfc > 18 && pfc != 30)) {
+            IntegerDataEncoding.Builder encoding = new IntegerDataEncoding.Builder();
+            int numFineBytes;
+            if (pfc == 0) {
+                // pfield is encoded in the time, we should set an algorithm to decode it
+                // TODO: implement the CucTimeDecoder algorithm
+                /*
+                encoding.setFromBinaryTransformAlgorithm(null);
+                
+                CustomAlgorithm decodingAlgo = new CustomAlgorithm("cuc_decoder" + ptc + "_" + pfc);
+                decodingAlgo.setLanguage("java");
+                decodingAlgo.setAlgorithmText("org.yamcs.algo.CucTimeDecoder()");
+                encoding.setFromBinaryTransformAlgorithm(decodingAlgo);*/
+                throw new MibLoadException(ctx, "Absolute time parameter with explicit pfield not implemented");
+            } else if (pfc <= 18) {            
+                int numCoarseBytes = 1 + (pfc - 3) / 4;
+                numFineBytes = (pfc - 3) % 4;
+                encoding.setSizeInBits(8*(numFineBytes+numCoarseBytes));
+            } else if (pfc == 30) {
+                throw new MibLoadException(ctx,
+                        "Time encoding/decoding with pfc = 30 (Absolute Unix time format) not supported");
+            } else {
                 throw new MibLoadException(ctx, "Unknown parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
             }
-            BinaryDataEncoding.Builder encoding = new BinaryDataEncoding.Builder().setType(Type.CUSTOM);
-            CustomAlgorithm customAlgo = new CustomAlgorithm("absolute_cuc_" + ptc + "_" + pfc);
-            customAlgo.setLanguage("java");
-            customAlgo.setAlgorithmText("org.yamcs.scos2k.TimeDecoder({'ptc':" + ptc + ", 'pfc':" + pfc + "})");
-            encoding.setFromBinaryTransformAlgorithm(customAlgo);
-            int sizeInBits = (pfc == 30) ? 64 : PTC9_10_SIZE_IN_BITS[pfc];
-            encoding.setSizeInBits(sizeInBits);
+            var tcoService = ctx.conf.tcoService;
+            if (tcoService != null) {
+                String tfb = "";
+                
+                if (ctx.conf.tcoFineBytes >= 0) {
+                    if (numFineBytes < ctx.conf.tcoFineBytes) {
+                        tfb = ", shiftBits: " + (ctx.conf.tcoFineBytes - numFineBytes) * 8;
+                    }else if (numFineBytes > ctx.conf.tcoFineBytes) {
+                        throw new MibLoadException("Parameter (ptc,pfc): (" + ptc + "," + pfc
+                                + ") numFineBytes greater than configuration tcoFineBytes");
+                    }
+                }
+                CustomAlgorithm tcoCalibrator = new CustomAlgorithm("tco_calibrator_" + ptc + "_" + pfc);
+                tcoCalibrator.setLanguage("java");
+                tcoCalibrator.setAlgorithmText(
+                        "org.yamcs.algo.TcoCalibrator({tcoService: '" + tcoService + "'" + tfb + "})");
+                encoding.setDefaultCalibrator(new AlgorithmCalibrator(tcoCalibrator));
+            }
             return encoding;
         } else if (ptc == 10) {
             if (pfc < 3 || pfc > 18) {
                 throw new MibLoadException(ctx, "Unknown parameter type (ptc,pfc): (" + ptc + "," + pfc + ")");
             }
             BinaryDataEncoding.Builder encoding = new BinaryDataEncoding.Builder().setType(Type.CUSTOM);
-            CustomAlgorithm customAlgo = new CustomAlgorithm("relative_cuc_" + ptc + "_" + pfc);
+            CustomAlgorithm customAlgo = new CustomAlgorithm("relative_cuc_" + ptc + "_"
+                    + pfc);
             customAlgo.setLanguage("java");
             customAlgo.setAlgorithmText("bububu relative cuc " + ptc + ", " + pfc);
             encoding.setFromBinaryTransformAlgorithm(customAlgo);
-            encoding.setSizeInBits((int) PTC9_10_SIZE_IN_BITS[pfc]);
+            encoding.setSizeInBits((int) PTC10_SIZE_IN_BITS[pfc]);
             return encoding;
         } else if (ptc == 11 || ptc == 12) {
             // PTC=11: deduced parameter

@@ -10,7 +10,6 @@ import org.yamcs.algorithms.AlgorithmExecutionResult;
 import org.yamcs.events.EventProducer;
 import org.yamcs.parameter.ParameterValue;
 import org.yamcs.parameter.Value;
-import org.yamcs.protobuf.Pvalue.AcquisitionStatus;
 import org.yamcs.xtce.Algorithm;
 import org.yamcs.xtce.BaseDataType;
 import org.yamcs.xtce.CustomAlgorithm;
@@ -19,7 +18,7 @@ import org.yamcs.xtce.OutputParameter;
 import org.yamcs.xtce.XtceDb;
 import org.yamcs.mdb.DataEncodingDecoder;
 import org.yamcs.mdb.ParameterTypeProcessor;
-import org.yamcs.mdb.ProcessingData;
+import org.yamcs.mdb.ProcessingContext;
 import org.yamcs.mdb.ProcessorData;
 
 public class OLExecutor extends AbstractAlgorithmExecutor {
@@ -58,7 +57,7 @@ public class OLExecutor extends AbstractAlgorithmExecutor {
             SimpleCompiler compiler = new SimpleCompiler();
             compiler.cook(code);
             Class<?> cexprClass = compiler.getClassLoader().loadClass("org.yamcs.scos2k.ol.generated." + name);
-            olEvaluator = (OLEvaluator) cexprClass.newInstance();
+            olEvaluator = (OLEvaluator) cexprClass.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
             log.warn("Failed to compile code "
                     + "\n---------\n{}\n--------\n"
@@ -82,10 +81,12 @@ public class OLExecutor extends AbstractAlgorithmExecutor {
     }
 
     @Override
-    public AlgorithmExecutionResult execute(long acqTime, long genTime, ProcessingData data) {
+    public AlgorithmExecutionResult execute(long acqTime, long genTime, ProcessingContext pctx) {
         ParameterValue out = new ParameterValue(outputParameter.getParameter());
+        out.setAcquisitionTime(acqTime);
+        out.setGenerationTime(genTime);
         Object value = olEvaluator.evaluate(globalVars, inputValues);
-        BaseDataType bdt = (BaseDataType)outputParameter.getParameter().getParameterType();
+        BaseDataType bdt = (BaseDataType) outputParameter.getParameter().getParameterType();
         DataEncoding de = bdt.getEncoding();
         Value rawValue = DataEncodingDecoder.getRawValue(de, value);
         if (rawValue == null) {

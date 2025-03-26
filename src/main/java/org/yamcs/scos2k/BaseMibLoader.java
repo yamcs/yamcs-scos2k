@@ -50,8 +50,9 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
     static final Pattern MIB_PNAME = Pattern.compile("\\w+");
 
     private List<MibLoadException> errors = new ArrayList<>();
+    MibConfig conf = new MibConfig();
 
-    protected MibLoaderContext ctx = new MibLoaderContext(null, -1);
+    protected MibLoaderContext ctx = new MibLoaderContext(conf, null, -1);
     protected LineNumberReader reader;
     String currentFile;
     String separator = "\t";
@@ -65,25 +66,24 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
     int counter = 0;
     SpaceSystem spaceSystem;
 
-    // epoch for the time parameters
-    TimeEpoch timeEpoch;
-
     String ssName;
-
-    boolean strict = false;
-    protected boolean generatePusNamespace;
 
     public BaseMibLoader(YConfiguration config) throws ConfigurationException {
         super(config.getString("path"));
 
-        this.generatePusNamespace = config.getBoolean("generatePusNamespace", true);
+        conf.generatePusNamespace = config.getBoolean("generatePusNamespace", true);
         ssName = config.getString("spaceSystemName", "MIB");
         String epoch = config.getString("epoch", "1970-01-01T00:00:00");
-        try {
-            CommonEpochs ce = CommonEpochs.valueOf(epoch.toUpperCase());
-            timeEpoch = new TimeEpoch(ce);
-        } catch (IllegalArgumentException e) {
-            timeEpoch = new TimeEpoch(epoch);// we assume it's a datetime
+        if ("TCO".equalsIgnoreCase(epoch)) {
+            conf.tcoService = config.getString("tcoService");
+            conf.tcoFineBytes = config.getInt("tcoFineBytes", -1);
+        } else {
+            try {
+                CommonEpochs ce = CommonEpochs.valueOf(epoch.toUpperCase());
+                conf.timeEpoch = new TimeEpoch(ce);
+            } catch (IllegalArgumentException e) {
+                conf.timeEpoch = new TimeEpoch(epoch);// we assume it's a datetime
+            }
         }
     }
 
@@ -273,7 +273,7 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
     }
 
     void error(MibLoadException e) {
-        if (strict) {
+        if (conf.strict) {
             throw e;
         }
         log.warn("{}", e.getMessage());

@@ -60,7 +60,6 @@ import org.yamcs.xtce.IntegerParameterType;
 import org.yamcs.xtce.JavaExpressionCalibrator;
 import org.yamcs.xtce.MatchCriteria;
 import org.yamcs.xtce.NumericAlarm;
-import org.yamcs.xtce.NumericDataEncoding;
 import org.yamcs.xtce.NumericParameterType;
 import org.yamcs.xtce.OnParameterUpdateTrigger;
 import org.yamcs.xtce.OperatorType;
@@ -441,8 +440,10 @@ public abstract class TmMibLoader extends BaseMibLoader {
             if (outpara == null) {
                 throw new MibLoadException(ctx, "Cannot find synthetic parameter '" + mp.name() + " in the XTCE db");
             }
+
             log.debug("Parsing and compiling {}", f);
             String olCode = new String(Files.readAllBytes(f.toPath()), StandardCharsets.ISO_8859_1);
+            outpara.setLongDescription("```\n" + olCode + "\n```");
             OLParser parser = new OLParser(new StringReader(olCode));
             code = parser.generateCodeStandalone(mp.name(), name -> {
                 MibParameter mibp = parameters.get(name);
@@ -534,9 +535,8 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 ContextCalibrator cc = new ContextCalibrator(ctx, calibrator);
                 contextCalibratorList.add(cc);
             }
-            ((NumericDataEncoding) mp.getEncoding()).setContextCalibratorList(contextCalibratorList);
+            mp.getEncoding().setContextCalibratorList(contextCalibratorList);
         }
-
     }
 
     private ParameterType.Builder<?> createParameterType(MibParameter mp) {
@@ -590,11 +590,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
                 ptype.setEncoding(encoding);
                 Calibrator calib = getNumericCalibrator(mp.pcf.curtx);
                 if (calib != null) {
-                    if (encoding instanceof NumericDataEncoding.Builder) {
-                        ((NumericDataEncoding.Builder<?>) encoding).setDefaultCalibrator(calib);
-                    } else {
-                        throw new IllegalStateException();
-                    }
+                    encoding.setDefaultCalibrator(calib);
                 }
                 return ptype;
             }
@@ -615,10 +611,19 @@ public abstract class TmMibLoader extends BaseMibLoader {
             } else if (ptc == 9) {
                 AbsoluteTimeParameterType.Builder ptype = new AbsoluteTimeParameterType.Builder()
                         .setName(mp.getTypeName());
-                ReferenceTime rt = new ReferenceTime(timeEpoch);
-                ptype.setReferenceTime(rt);
                 ptype.setEncoding(encoding);
-                ptype.setScaling(0, 0.001);
+                if (encoding.getDefaultCalibrator() == null) { // TCO calibrator not cofigured
+                    ReferenceTime rt = new ReferenceTime(conf.timeEpoch);
+                    ptype.setReferenceTime(rt);
+                    if (pfc == 0) {
+                        // explicit pfield, not yet implemented but when it will be implemented it should extract the
+                        // raw value as milliseconds
+                        ptype.setScaling(0, 0.001);
+                    } else {
+                        int numFineBytes = (pfc - 3) % 4;
+                        ptype.setScaling(0, 1.0 / (1 << (8 * numFineBytes)));
+                    }
+                } // else TCO calibrator will convert the raw value directly to a timestamp
                 return ptype;
             } else if (ptc == 10) {
                 StringParameterType.Builder ptype = new StringParameterType.Builder()
@@ -1149,7 +1154,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     SequenceContainer seq1 = new SequenceContainer(name);
                     seq1.setBaseContainer(seq);
                     seq1.setShortDescription(pid.descr);
-                    if (generatePusNamespace) {
+                    if (conf.generatePusNamespace) {
                         seq1.addAlias(PUS_NAMESPACE, String.format("TM(%d,%d)", type, stype));
                     }
                     ComparisonList cl = new ComparisonList();
@@ -1168,7 +1173,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
                     spidToSeqContainer.put(pid.spid, seq1);
                 }
             }
-            if (generatePusNamespace) {
+            if (conf.generatePusNamespace) {
                 seq.addAlias(PUS_NAMESPACE, String.format("TM(%d,%d)", type, stype));
             }
         }

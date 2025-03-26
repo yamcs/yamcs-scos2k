@@ -9,7 +9,7 @@
 	<name>Yamcs SCOS-2000</name>
 	<url>https://yamcs.org</url>
 	<groupId>org.yamcs</groupId>
-	<version>0.7.2-SNAPSHOT</version>
+	<version>0.8.0-SNAPSHOT</version>
 	<description>Implements SCOS 2000 MIB loader including executors for OL
 		expressions and decoding of special SCOS 2000 data types</description>
 	<licenses>
@@ -46,7 +46,7 @@
 		<dependency>
 			<groupId>org.yamcs</groupId>
 			<artifactId>yamcs-core</artifactId>
-			<version>5.11.1</version>
+			<version>5.12.0-SNAPSHOT</version>
 			<scope>provided</scope>
 		</dependency>
 

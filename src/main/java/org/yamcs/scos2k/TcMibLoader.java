@@ -19,6 +19,7 @@ import org.yamcs.scos2k.MonitoringData.PrfRecord;
 import org.yamcs.tctm.pus.PusCommandPostprocessor;
 import org.yamcs.scos2k.CommandingData.TcHeaderRecord;
 import org.yamcs.utils.StringConverter;
+import org.yamcs.xtce.AbsoluteTimeArgumentType;
 import org.yamcs.xtce.AggregateArgumentType;
 import org.yamcs.xtce.AncillaryData;
 import org.yamcs.xtce.Algorithm.Scope;
@@ -58,12 +59,12 @@ import org.yamcs.xtce.IntegerDataType;
 import org.yamcs.xtce.IntegerValue;
 import org.yamcs.xtce.MetaCommand;
 import org.yamcs.xtce.NameDescription;
-import org.yamcs.xtce.NumericDataEncoding;
 import org.yamcs.xtce.NumericParameterType;
 import org.yamcs.xtce.OperatorType;
 import org.yamcs.xtce.Parameter;
 import org.yamcs.xtce.ParameterInstanceRef;
 import org.yamcs.xtce.ParameterType;
+import org.yamcs.xtce.ReferenceTime;
 import org.yamcs.xtce.SequenceContainer;
 import org.yamcs.xtce.SequenceEntry;
 import org.yamcs.xtce.SequenceEntry.ReferenceLocationType;
@@ -309,7 +310,7 @@ public abstract class TcMibLoader extends TmMibLoader {
             }
             var descr = line[IDX_CCF_DESCR];
             var descr2 = getString(line, IDX_CCF_DESCR2, null);
-            if (generatePusNamespace) {
+            if (conf.generatePusNamespace) {
                 mc.setShortDescription(descr2);
             } else {
                 mc.setShortDescription(descr);
@@ -344,7 +345,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                 }
             }
 
-            if (generatePusNamespace && type != -1 && subType != -1) {
+            if (conf.generatePusNamespace && type != -1 && subType != -1) {
                 mc.addAlias(PUS_NAMESPACE, String.format("TC(%d,%d) %s", type, subType, descr));
             }
 
@@ -661,7 +662,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                     + "' not found in the CCA table");
         }
         DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
-        ((NumericDataEncoding.Builder<?>) encoding).setDefaultCalibrator(new SplineCalibrator(cca.splines));
+        encoding.setDefaultCalibrator(new SplineCalibrator(cca.splines));
 
         if ("R".equals(cca.engfmt)) {
             FloatArgumentType.Builder argType = new FloatArgumentType.Builder().setName(cpc.pname);
@@ -715,7 +716,15 @@ public abstract class TcMibLoader extends TmMibLoader {
 
     private ArgumentType.Builder<?> createArgumentTypeNcateg(CdfRecord cdf) {
         CpcRecord cpc = cdf.cpc;
-        if (cpc.ptc == 12) {
+        DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
+        if (cpc.ptc == 9) {
+            AbsoluteTimeArgumentType.Builder atype = new AbsoluteTimeArgumentType.Builder();
+            ReferenceTime rt = new ReferenceTime(conf.timeEpoch);
+            atype.setReferenceTime(rt);
+            atype.setEncoding(encoding);
+            atype.setScaling(0, 0.001);
+            return atype;
+        } else if (cpc.ptc == 12) {
             // (pfc, ptc) = (12, 1) is used to embed TC packets inside TM or TC packets.
             // For example PUS(11,10) time-based schedule detail report
             // (pfc, ptc) = (12, 0) is used to embed TM packets inside TM or TC packets.
@@ -729,7 +738,6 @@ public abstract class TcMibLoader extends TmMibLoader {
             MibLoaderBits.addPtc12Members(spaceSystem, aggrb, cpc.pfc);
             return aggrb;
         } else {
-            DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
             return (ArgumentType.Builder<?>) getDataType(encoding, "arg_" + cpc.pname, false);
         }
     }
@@ -1087,12 +1095,6 @@ public abstract class TcMibLoader extends TmMibLoader {
                     if (!(ptype instanceof NumericParameterType)) {
                         throw new MibLoadException(ctx,
                                 "Cannot use CVE_TOL for a parameter with non numeric eng value" + parname);
-                    }
-                } else {
-                    DataEncoding enc = ((BaseDataType) ptype).getEncoding();
-                    if (!(enc instanceof NumericDataEncoding)) {
-                        throw new MibLoadException(ctx,
-                                "Cannot use CVE_TOL for a parameter with non numeric raw value" + parname);
                     }
                 }
                 double tolerance = getDouble(line, IDX_CVE_TOL);

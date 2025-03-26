@@ -8,7 +8,7 @@ import org.yamcs.algorithms.AbstractAlgorithmExecutor;
 import org.yamcs.algorithms.AlgorithmExecutionContext;
 import org.yamcs.algorithms.AlgorithmExecutionResult;
 import org.yamcs.commanding.VerificationResult;
-import org.yamcs.mdb.ProcessingData;
+import org.yamcs.mdb.ProcessingContext;
 import org.yamcs.parameter.RawEngValue;
 import org.yamcs.scos2k.MessageTemplate.ParameterValueResolver;
 import org.yamcs.xtce.Algorithm;
@@ -74,7 +74,7 @@ public class Pus1Verifier extends AbstractAlgorithmExecutor {
     }
 
     @Override
-    public AlgorithmExecutionResult execute(long acqTime, long genTime, ProcessingData pdata) {
+    public AlgorithmExecutionResult execute(long acqTime, long genTime, ProcessingContext pctx) {
         for (int i = 0; i < 5; i++) {
             if (inputValues.get(i) == null) {
                 log.trace("Returning NO_RESULT because no value available for input {}", i);
@@ -116,7 +116,7 @@ public class Pus1Verifier extends AbstractAlgorithmExecutor {
 
                     @Override
                     public RawEngValue resolve(Parameter p) {
-                        return pdata.getTmParams().getLastInserted(p);
+                        return pctx.getTmParams().getLastInserted(p);
                     }
                 });
             }

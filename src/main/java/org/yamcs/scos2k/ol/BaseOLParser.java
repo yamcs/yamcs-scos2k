@@ -21,7 +21,6 @@ import org.yamcs.xtce.FloatDataEncoding;
 import org.yamcs.xtce.FloatParameterType;
 import org.yamcs.xtce.IntegerDataEncoding;
 import org.yamcs.xtce.IntegerParameterType;
-import org.yamcs.xtce.NumericDataEncoding;
 import org.yamcs.xtce.ParameterType;
 import org.yamcs.xtce.StringParameterType;
 import org.yamcs.mdb.DataEncodingDecoder;
@@ -138,7 +137,8 @@ public abstract class BaseOLParser {
         }
         DataEncoding encoding = ((BaseDataType) outType).getEncoding();
 
-        if ((encoding instanceof NumericDataEncoding) && ec.type == Type.BOOLEAN) {
+        if ((encoding instanceof IntegerDataEncoding
+                || encoding instanceof FloatDataEncoding) && ec.type == Type.BOOLEAN) {
             return "OLFunction.bool2int(" + ec.code + ")";
         } else if ((encoding instanceof IntegerDataEncoding) && (ec.type == Type.DOUBLE)) {
             return "(long) (" + ec.code + ")";
