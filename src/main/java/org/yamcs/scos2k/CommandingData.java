@@ -355,6 +355,9 @@ public class CommandingData {
         Argument type;
         Argument subType;
         Argument ack;
+        int ackLocation;
+        int apidLocation;
+        int firstArgLocation;
     }
 
 }

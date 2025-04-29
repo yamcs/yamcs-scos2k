@@ -93,6 +93,10 @@ public abstract class TcMibLoader extends TmMibLoader {
     private Map<Integer, EnumeratedArgumentType.Builder> parameterIdArgs = new HashMap<>();
     // default size in bytes of the size tag for variable length strings and bytestrings
     private int vblParamLengthBytes = 1;
+    // if true, allow users to change the APID of the commands sent
+    private boolean allowApidChange = false;
+    // if true, allow users to change the ack flags of the command sent
+    private boolean allowAckChange = false;
 
     private Map<String, TcHeaderRecord> tcHeaderRecords = new HashMap<>();
     Map<String, Argument> headerArgs = new HashMap<>();
@@ -103,6 +107,8 @@ public abstract class TcMibLoader extends TmMibLoader {
         super(config);
         YConfiguration tcConf = config.getConfig("TC");
         vblParamLengthBytes = tcConf.getInt("vblParamLengthBytes", 1);
+        allowApidChange = tcConf.getBoolean("allowApidChange", false);
+        allowAckChange = tcConf.getBoolean("allowAckChange", false);
     }
 
     protected void loadCommands() {
@@ -190,10 +196,15 @@ public abstract class TcMibLoader extends TmMibLoader {
                 throw new MibLoadException(ctx,
                         "Ecountered PCDF record without a corresponding tcp record with TCP_ID '" + cname + "'");
             }
+            int location = getInt(line, IDX_PCDF_BIT);
             int sizeInBits = getInt(line, IDX_PCDF_LEN);
             CommandContainer container = thr.mc.getCommandContainer();
             String type = line[IDX_PCDF_TYPE];
             Argument arg = null;
+
+            if (thr.firstArgLocation < location + sizeInBits) {
+                thr.firstArgLocation = location + sizeInBits;
+            }
 
             if ("F".equals(type)) {
                 checkMandatory(line, IDX_PCDF_VALUE);
@@ -204,7 +215,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                     binary = tmp;
                 }
                 FixedValueEntry fve = new FixedValueEntry(getString(line, IDX_PCDF_DESC, null), binary, sizeInBits);
-                fve.setLocation(ReferenceLocationType.CONTAINER_START, getInt(line, IDX_PCDF_BIT));
+                fve.setLocation(ReferenceLocationType.CONTAINER_START, location);
                 container.addEntry(fve);
             } else if ("ATSK".contains(type)) {
                 checkMandatory(line, IDX_PCDF_PNAME);
@@ -230,23 +241,39 @@ public abstract class TcMibLoader extends TmMibLoader {
                     iat.setEncoding(encoding);
                 }
                 arg.setArgumentType(iat.build());
-                thr.mc.addArgument(arg);
                 ArgumentEntry ae = new ArgumentEntry(arg);
-                ae.setLocation(ReferenceLocationType.CONTAINER_START, getInt(line, IDX_PCDF_BIT));
-                container.addEntry(ae);
+                ae.setLocation(ReferenceLocationType.CONTAINER_START, location);
 
                 switch (type) {
                 case "A":
                     thr.apid = arg;
+                    if (allowApidChange) {
+                        // the ack argument will be part of the command
+                        thr.apidLocation = location;
+                    } else {
+                        thr.mc.addArgument(arg);
+                        container.addEntry(ae);
+                    }
                     break;
                 case "T":
                     thr.type = arg;
+                    thr.mc.addArgument(arg);
+                    container.addEntry(ae);
                     break;
                 case "S":
                     thr.subType = arg;
+                    thr.mc.addArgument(arg);
+                    container.addEntry(ae);
                     break;
                 case "K":
                     thr.ack = arg;
+                    if (allowAckChange) {
+                        // the ack argument will be part of the command
+                        thr.ackLocation = location;
+                    } else {
+                        thr.mc.addArgument(arg);
+                        container.addEntry(ae);
+                    }
                     break;
                 }
             } else if ("P".equals(type)) {
@@ -320,16 +347,36 @@ public abstract class TcMibLoader extends TmMibLoader {
             String criticality = getString(line, IDX_CCF_CRITICAL, "N");
             Significance signific = "Y".equalsIgnoreCase(criticality) ? SIGNIF_CRITICAL : SIGNIF_NONE;
             mc.setDefaultSignificance(signific);
-            CommandContainer container = new CommandContainer(mc.getName());
-            mc.setCommandContainer(container);
+
+            CommandContainer mcContainer = new CommandContainer(mc.getName());
+            mc.setCommandContainer(mcContainer);
+            if (mc != mc1) {
+                CommandContainer mc1Container = new CommandContainer(mc.getName());
+                mc1.setCommandContainer(mc1Container);
+            }
+            int firstArgLocation = 0;
+
             int type = -1;
             int subType = -1;
             if (thr != null) {
+                firstArgLocation = thr.firstArgLocation;
                 mc1.setBaseMetaCommand(thr.mc);
-                container.setBaseContainer(thr.mc.getCommandContainer());
+                mcContainer.setBaseContainer(thr.mc.getCommandContainer());
+
                 if (thr.apid != null) {
                     int apid = getInt(line, IDX_CCF_APID);
-                    mc1.addArgumentAssignment(new ArgumentAssignment(thr.apid.getName(), Integer.toString(apid)));
+                    if (allowApidChange) {
+
+                        Argument apidArg = new Argument(thr.apid.getName());
+                        apidArg.setArgumentType(thr.apid.getArgumentType());
+                        apidArg.setInitialValue(Long.valueOf(apid));
+                        mc1.addArgument(apidArg);
+                        var apidEntry = new ArgumentEntry(thr.apidLocation, ReferenceLocationType.CONTAINER_START,
+                                apidArg);
+                        mc1.getCommandContainer().addEntry(apidEntry);
+                    } else {
+                        mc1.addArgumentAssignment(new ArgumentAssignment(thr.apid.getName(), Integer.toString(apid)));
+                    }
                 }
                 if (thr.type != null) {
                     type = getInt(line, IDX_CCF_TYPE);
@@ -341,7 +388,17 @@ public abstract class TcMibLoader extends TmMibLoader {
                 }
                 if (thr.ack != null && hasColumn(line, IDX_CCF_ACK)) {
                     int ack = getInt(line, IDX_CCF_ACK);
-                    mc1.addArgumentAssignment(new ArgumentAssignment(thr.ack.getName(), Integer.toString(ack)));
+                    if (allowAckChange) {
+                        Argument ackArg = new Argument(thr.ack.getName());
+                        ackArg.setInitialValue(Long.valueOf(ack));
+                        ackArg.setArgumentType(thr.ack.getArgumentType());
+                        mc1.addArgument(ackArg);
+                        var ackEntry = new ArgumentEntry(thr.ackLocation, ReferenceLocationType.CONTAINER_START,
+                                ackArg);
+                        mc1.getCommandContainer().addEntry(ackEntry);
+                    } else {
+                        mc1.addArgumentAssignment(new ArgumentAssignment(thr.ack.getName(), Integer.toString(ack)));
+                    }
                 }
             }
 
@@ -368,7 +425,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                 mc.addAncillaryData(new AncillaryData(AncillaryData.KEY_CCSDS_MAP_ID, Integer.toString(mapId)));
             }
 
-            addArguments(abstractMc, mc);
+            addArguments(abstractMc, mc, firstArgLocation);
             if (abstractMc != null) {
                 spaceSystem.addMetaCommand(abstractMc);
             }
@@ -420,8 +477,10 @@ public abstract class TcMibLoader extends TmMibLoader {
      * <p>
      * abstractMc is not null and is the parent of mc in case the command has read-only arguments. The read-only
      * arguments are added to the abstractMc and are fixed by the inheritance argument assignment
+     * 
+     * @param firstArgLocation
      */
-    private void addArguments(MetaCommand abstractMc, MetaCommand mc) {
+    private void addArguments(MetaCommand abstractMc, MetaCommand mc, int firstArgLocation) {
         int count = 0;
         List<CdfRecord> l = cdfRecords.get(mc.getName());
         if (l == null) {
@@ -520,7 +579,11 @@ public abstract class TcMibLoader extends TmMibLoader {
             } else {
                 throw new MibLoadException(ctx, "parameter with CDF_ELTYPE=" + cdf.eltype + " not supported");
             }
-            se.setLocation(ReferenceLocationType.PREVIOUS_ENTRY, 0);
+            if (k == 0) {
+                se.setLocation(ReferenceLocationType.CONTAINER_START, firstArgLocation);
+            } else {
+                se.setLocation(ReferenceLocationType.PREVIOUS_ENTRY, 0);
+            }
             container.addEntry(se);
 
             if (cdf.grpsize == 1) {
@@ -1190,9 +1253,21 @@ public abstract class TcMibLoader extends TmMibLoader {
 
     private CommandVerifier createPusVerifier(MetaCommand mc, String stage, CheckWindow checkWindow) {
         CommandVerifier cv = new CommandVerifier(Type.ALGORITHM, stage, checkWindow);
-        CustomAlgorithm alg = (CustomAlgorithm) spaceSystem.getAlgorithm("PUS_Verifier-" + stage);
+        String suffix;
+        CustomAlgorithm alg;
+
+        if (allowApidChange) {
+            // we need to make a new algorithm for each command because the APID is part of the command
+            alg = null;
+            suffix = "_" + mc.getName();
+        } else {
+            // we can reuse the same algorithm because the APID is apart of the base command
+            suffix = "";
+            alg = (CustomAlgorithm) spaceSystem.getAlgorithm("PUS_Verifier-" + stage);
+        }
+
         if (alg == null) {
-            alg = new CustomAlgorithm("PUS_Verifier-" + stage);
+            alg = new CustomAlgorithm("PUS_Verifier-" + stage + suffix);
             alg.setScope(Scope.COMMAND_VERIFICATION);
             alg.setInputList(
                     Arrays.asList(
@@ -1272,47 +1347,42 @@ public abstract class TcMibLoader extends TmMibLoader {
 
     // find the APID argument of the command sent, required for PUS1 verifier
     InputParameter getAlgoApidInput(MetaCommand cmd, String inputName) {
-        var baseCmd = cmd.getBaseMetaCommand();
-        if (baseCmd != null && baseCmd.getName().endsWith("_abstract")) {
-            baseCmd = baseCmd.getBaseMetaCommand();
-        }
-        if (baseCmd == null) {
-            throw new MibLoadException("Command " + cmd.getName() + " has no base command");
-        }
-        var offset = 0;
+        MetaCommand cmd1 = cmd;
         Argument apidArg = null;
-        System.out.println("cmd: " + cmd.getName() + "  baseCmd: " + baseCmd.getName());
-        for (var se : baseCmd.getCommandContainer().getEntryList()) {
-            if (se instanceof FixedValueEntry fve) {
-                offset += fve.getSizeInBits();
-                continue;
-            } else if (se instanceof ArgumentEntry argEntry) {
-                var arg = argEntry.getArgument();
-                var argType = arg.getArgumentType();
-                int size;
-                if (argType instanceof IntegerDataType dt) {
-                    size = dt.getEncoding().getSizeInBits();
-                } else if (argType instanceof FloatDataType dt) {
-                    size = dt.getEncoding().getSizeInBits();
-                } else if (argType instanceof BooleanDataType dt) {
-                    size = dt.getEncoding().getSizeInBits();
-                } else {
-                    throw new MibLoadException("Unexpected argument data type for argument " + arg);
+        outer: while (cmd1 != null) {
+            for (var se : cmd1.getCommandContainer().getEntryList()) {
+                if (se instanceof ArgumentEntry argEntry) {
+                    if (se.getReferenceLocation() != ReferenceLocationType.CONTAINER_START) {
+                        continue;
+                    }
+                    int offset = se.getLocationInContainerInBits();
+                    var arg = argEntry.getArgument();
+                    var argType = arg.getArgumentType();
+                    int size;
+                    if (argType instanceof IntegerDataType dt) {
+                        size = dt.getEncoding().getSizeInBits();
+                    } else if (argType instanceof FloatDataType dt) {
+                        size = dt.getEncoding().getSizeInBits();
+                    } else if (argType instanceof BooleanDataType dt) {
+                        size = dt.getEncoding().getSizeInBits();
+                    } else {
+                        continue;
+                    }
+                    if (offset == 5 && size == 11) {
+                        apidArg = arg;
+                        break outer;
+                    }
+                    offset += size;
                 }
-                if (offset == 5 && size == 11) {
-                    apidArg = arg;
-                    break;
-                }
-                offset += size;
-            } else {
-                throw new MibLoadException("Unexpected container entry " + se);
             }
+            cmd1 = cmd1.getBaseMetaCommand();
         }
 
         if (apidArg == null) {
             throw new MibLoadException(
                     "Cannot find APID argument for command " + cmd.getName() + " or its parent");
         }
+        System.out.println("found apidArg: " + apidArg);
         ArgumentInstanceRef argInstRef = new ArgumentInstanceRef(apidArg, false);
 
         return new InputParameter(argInstRef, inputName);

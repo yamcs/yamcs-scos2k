@@ -16,6 +16,8 @@ The following can be added to the mdb section of the instance configuration:
         TC:   
            # default size in bytes of the size tag for variable length strings and bytestrings
            vblParamLengthBytes: 0
+           # allowApidChange: false
+           # allowAckChange: false
         TM:  
             vblParamLengthBytes: 1
             # byte offset from beginning of the packet where the type and subType are read from     
@@ -42,7 +44,15 @@ TC Options
 These options are specified under the TC keyword
 
 vblParamLengthBytes(interger)
-     default size in bytes of the size tag for variable length strings and bytestrings
+    default size in bytes of the size tag for variable length strings and bytestrings
+
+allowApidChange (boolean)
+    if true, define the APID as a user changeable argument with the default value as per MIB. If false, the APID defined in the MIB table CCF is enforced.
+
+allowAckChange (boolean)
+    same as above but it refers to the ack flags that configure the command acknowledgments. If true the user can select which acks flags are set, if false the MIB value from the CCF table isenforced.
+
+
 
 TM Options
 ----------
