@@ -358,15 +358,15 @@ public abstract class TcMibLoader extends TmMibLoader {
 
             int type = -1;
             int subType = -1;
+            int apid = -1;
             if (thr != null) {
                 firstArgLocation = thr.firstArgLocation;
                 mc1.setBaseMetaCommand(thr.mc);
                 mcContainer.setBaseContainer(thr.mc.getCommandContainer());
 
                 if (thr.apid != null) {
-                    int apid = getInt(line, IDX_CCF_APID);
+                    apid = getInt(line, IDX_CCF_APID);
                     if (allowApidChange) {
-
                         Argument apidArg = new Argument(thr.apid.getName());
                         apidArg.setArgumentType(thr.apid.getArgumentType());
                         apidArg.setInitialValue(Long.valueOf(apid));
@@ -406,9 +406,9 @@ public abstract class TcMibLoader extends TmMibLoader {
                 mc.addAlias(PUS_NAMESPACE, String.format("TC(%d,%d) %s", type, subType, descr));
             }
 
-            if (type == 17 && subType == 1) {
+            if (apid != -1 && type == 17 && subType == 1) {
                 // add PUS(17,2) verifier
-                SequenceContainer sc = findContainer(17, 2);
+                SequenceContainer sc = findContainer(apid, 17, 2);
                 if (sc != null) {
                     CommandVerifier cv = new CommandVerifier(Type.CONTAINER, "PUS17_Report",
                             new CheckWindow(0, 15000, TimeWindowIsRelativeToType.COMMAND_RELEASE));
@@ -433,17 +433,22 @@ public abstract class TcMibLoader extends TmMibLoader {
         }
     }
 
-    SequenceContainer findContainer(int type, int subType) {
+    SequenceContainer findContainer(int apid, int type, int subType) {
         for (var seq : spaceSystem.getSequenceContainers()) {
             ComparisonList clist = (ComparisonList) seq.getRestrictionCriteria();
             if (clist == null) {
                 continue;
             }
+            boolean foundApid = false;
             boolean foundType = false;
             boolean foundSubType = false;
             for (var comp : clist.getComparisonList()) {
                 if (comp.getRef() instanceof ParameterInstanceRef pir) {
                     Parameter p = pir.getParameter();
+                    if (PARA_NAME_APID.equals(p.getName())
+                            && comp.getStringValue().equals(Integer.toString(apid))) {
+                        foundApid = true;
+                    }
                     if (PARA_NAME_PUS_TYPE.equals(p.getName())
                             && comp.getStringValue().equals(Integer.toString(type))) {
                         foundType = true;
@@ -456,7 +461,7 @@ public abstract class TcMibLoader extends TmMibLoader {
 
             }
 
-            if (foundType && foundSubType) {
+            if (foundApid && foundType && foundSubType) {
                 return seq;
             }
         }
