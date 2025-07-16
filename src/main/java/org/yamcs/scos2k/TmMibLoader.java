@@ -1354,8 +1354,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             }
             if (p == null) {
                 DeducedParameter dp = deducedParameters.get(vpd.name);
-                ParameterInstanceRef ref = new ParameterInstanceRef();
-                ref.setParameter(spaceSystem.getParameter(dp.refPname));
+                ParameterInstanceRef ref = new ParameterInstanceRef(spaceSystem.getParameter(dp.refPname), false);
                 IndirectParameterRefEntry entry = new IndirectParameterRefEntry(offset, location, ref,
                         OB_PID_NAMESPACE);
                 seq.addEntry(entry);
