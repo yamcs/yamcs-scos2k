@@ -1247,8 +1247,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             SequenceEntry entry;
             if (deducedParameters.containsKey(pname)) {
                 DeducedParameter dp = deducedParameters.get(pname);
-                ParameterInstanceRef ref = new ParameterInstanceRef();
-                ref.setParameter(spaceSystem.getParameter(dp.refPname));
+                ParameterInstanceRef ref = new ParameterInstanceRef(spaceSystem.getParameter(dp.refPname), false);
                 entry = new IndirectParameterRefEntry(locationInBits, ReferenceLocationType.CONTAINER_START, ref,
                         OB_PID_NAMESPACE);
             } else if (savedSynthenticParams.containsKey(pname)) {
