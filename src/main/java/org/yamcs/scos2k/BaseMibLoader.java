@@ -244,7 +244,7 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
             dtype.setEncoding(encoding);
             return dtype;
         } else {
-            throw new IllegalStateException(" encoding: " + encoding);
+            throw new IllegalStateException("name:" + name + " encoding: " + encoding);
         }
     }
 
