@@ -9,7 +9,7 @@
 	<name>Yamcs SCOS-2000</name>
 	<url>https://yamcs.org</url>
 	<groupId>org.yamcs</groupId>
-	<version>0.7.2-SNAPSHOT</version>
+	<version>0.7.2</version>
 	<description>Implements SCOS 2000 MIB loader including executors for OL
 		expressions and decoding of special SCOS 2000 data types</description>
 	<licenses>
@@ -124,7 +124,15 @@
 							</execution>
 						</executions>
 					</plugin>
-
+					<plugin>
+						<groupId>org.sonatype.central</groupId>
+						<artifactId>central-publishing-maven-plugin</artifactId>
+						<version>0.7.0</version>
+						<extensions>true</extensions>
+						<configuration>
+							<autoPublish>false</autoPublish>
+						</configuration>
+					</plugin>
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-gpg-plugin</artifactId>
@@ -138,17 +146,6 @@
 								</goals>
 							</execution>
 						</executions>
-					</plugin>
-					<plugin>
-						<groupId>org.sonatype.plugins</groupId>
-						<artifactId>nexus-staging-maven-plugin</artifactId>
-						<version>1.6.13</version>
-						<extensions>true</extensions>
-						<configuration>
-							<serverId>ossrh</serverId>
-							<nexusUrl>https://oss.sonatype.org/</nexusUrl>
-							<autoReleaseAfterClose>false</autoReleaseAfterClose>
-						</configuration>
 					</plugin>
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
