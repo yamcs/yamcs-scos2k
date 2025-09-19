@@ -202,16 +202,15 @@ public class MibLoaderBits {
                 // TODO: implement the CucTimeDecoder algorithm
                 /*
                 encoding.setFromBinaryTransformAlgorithm(null);
-                
                 CustomAlgorithm decodingAlgo = new CustomAlgorithm("cuc_decoder" + ptc + "_" + pfc);
                 decodingAlgo.setLanguage("java");
                 decodingAlgo.setAlgorithmText("org.yamcs.algo.CucTimeDecoder()");
                 encoding.setFromBinaryTransformAlgorithm(decodingAlgo);*/
                 throw new MibLoadException(ctx, "Absolute time parameter with explicit pfield not implemented");
-            } else if (pfc <= 18) {            
+            } else if (pfc <= 18) {
                 int numCoarseBytes = 1 + (pfc - 3) / 4;
                 numFineBytes = (pfc - 3) % 4;
-                encoding.setSizeInBits(8*(numFineBytes+numCoarseBytes));
+                encoding.setSizeInBits(8 * (numFineBytes + numCoarseBytes));
             } else if (pfc == 30) {
                 throw new MibLoadException(ctx,
                         "Time encoding/decoding with pfc = 30 (Absolute Unix time format) not supported");
@@ -221,11 +220,11 @@ public class MibLoaderBits {
             var tcoService = ctx.conf.tcoService;
             if (tcoService != null) {
                 String tfb = "";
-                
+
                 if (ctx.conf.tcoFineBytes >= 0) {
                     if (numFineBytes < ctx.conf.tcoFineBytes) {
                         tfb = ", shiftBits: " + (ctx.conf.tcoFineBytes - numFineBytes) * 8;
-                    }else if (numFineBytes > ctx.conf.tcoFineBytes) {
+                    } else if (numFineBytes > ctx.conf.tcoFineBytes) {
                         throw new MibLoadException("Parameter (ptc,pfc): (" + ptc + "," + pfc
                                 + ") numFineBytes greater than configuration tcoFineBytes");
                     }

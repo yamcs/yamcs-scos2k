@@ -1,3 +1,11 @@
+Version 0.8.0 released 19-Sep-2025
+- updated to work with Yamcs 5.12
+
+Version 0.7.2 released 18-Jul-2025
+- added a configuration allowing the command ACK and APID to be settable by the user
+- PUS 17 container verifier uses the APID now
+- deduced parameters use the raw value
+
 Version 0.7.1 released 13-Mar-2024
 - added an option packetsContainingWritableParameters under the TM that allows listing SIDs of packets that will be declared as Local such that they can be written via Yamcs API. Missions use these pseudo-packets to inject data from external systems
 

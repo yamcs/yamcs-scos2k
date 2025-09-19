@@ -9,7 +9,7 @@
 	<name>Yamcs SCOS-2000</name>
 	<url>https://yamcs.org</url>
 	<groupId>org.yamcs</groupId>
-	<version>0.8.0-SNAPSHOT</version>
+	<version>0.8.0</version>
 	<description>Implements SCOS 2000 MIB loader including executors for OL
 		expressions and decoding of special SCOS 2000 data types</description>
 	<licenses>
@@ -46,7 +46,7 @@
 		<dependency>
 			<groupId>org.yamcs</groupId>
 			<artifactId>yamcs-core</artifactId>
-			<version>5.12.0-SNAPSHOT</version>
+			<version>5.12.1</version>
 			<scope>provided</scope>
 		</dependency>
 
@@ -95,20 +95,6 @@
 			</plugin>
 		</plugins>
 	</build>
-
-	<repositories>
-		<repository>
-			<id>sonatype-snapshots</id>
-			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
-			<snapshots>
-				<enabled>true</enabled>
-			</snapshots>
-			<releases>
-				<enabled>false</enabled>
-			</releases>
-		</repository>
-	</repositories>
-
 	<distributionManagement>
 		<snapshotRepository>
 			<id>ossrh</id>
@@ -129,7 +115,7 @@
 						<artifactId>maven-source-plugin</artifactId>
 						<version>3.3.1</version>
 						<executions>
-							<execution>
+							<execution>	
 								<id>attach-sources</id>
 								<goals>
 									<goal>jar-no-fork</goal>
@@ -137,7 +123,15 @@
 							</execution>
 						</executions>
 					</plugin>
-
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.7.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                                <autoPublish>false</autoPublish>
+                        </configuration>
+	                </plugin>
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-gpg-plugin</artifactId>
