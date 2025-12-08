@@ -1,5 +1,6 @@
 package org.yamcs.scos2k;
 
+import org.yamcs.utils.IntHashSet;
 import org.yamcs.xtce.TimeEpoch;
 
 public class MibConfig {
@@ -13,6 +14,8 @@ public class MibConfig {
     // number of bytes in the fractional part that are used by the obt handled by the TCO
     // if the parameters or arguments have less than this, they are shifted to the left
     int tcoFineBytes = -1;
+
+
 
     @Override
     public String toString() {

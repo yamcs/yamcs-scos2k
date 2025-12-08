@@ -16,6 +16,7 @@ import org.yamcs.ConfigurationException;
 import org.yamcs.YConfiguration;
 import org.yamcs.scos2k.MibLoaderBits.MibLoadException;
 import org.yamcs.scos2k.MonitoringData.DeducedParameter;
+import org.yamcs.utils.IntHashSet;
 import org.yamcs.mdb.AbstractFileLoader;
 import org.yamcs.xtce.BaseDataType;
 import org.yamcs.xtce.BinaryArgumentType;
@@ -85,6 +86,7 @@ public abstract class BaseMibLoader extends AbstractFileLoader {
                 conf.timeEpoch = new TimeEpoch(epoch);// we assume it's a datetime
             }
         }
+
     }
 
     protected boolean hasColumn(String[] line, int colNum) {

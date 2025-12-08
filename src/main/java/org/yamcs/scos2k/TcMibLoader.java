@@ -435,34 +435,32 @@ public abstract class TcMibLoader extends TmMibLoader {
 
     SequenceContainer findContainer(int apid, int type, int subType) {
         for (var seq : spaceSystem.getSequenceContainers()) {
-            ComparisonList clist = (ComparisonList) seq.getRestrictionCriteria();
-            if (clist == null) {
-                continue;
-            }
-            boolean foundApid = false;
-            boolean foundType = false;
-            boolean foundSubType = false;
-            for (var comp : clist.getComparisonList()) {
-                if (comp.getRef() instanceof ParameterInstanceRef pir) {
-                    Parameter p = pir.getParameter();
-                    if (PARA_NAME_APID.equals(p.getName())
-                            && comp.getStringValue().equals(Integer.toString(apid))) {
-                        foundApid = true;
+            if (seq.getRestrictionCriteria() instanceof ComparisonList clist) {
+                boolean foundApid = false;
+                boolean foundType = false;
+                boolean foundSubType = false;
+                for (var comp : clist.getComparisonList()) {
+                    if (comp.getRef() instanceof ParameterInstanceRef pir) {
+                        Parameter p = pir.getParameter();
+                        if (PARA_NAME_APID.equals(p.getName())
+                                && comp.getStringValue().equals(Integer.toString(apid))) {
+                            foundApid = true;
+                        }
+                        if (PARA_NAME_PUS_TYPE.equals(p.getName())
+                                && comp.getStringValue().equals(Integer.toString(type))) {
+                            foundType = true;
+                        }
+                        if (PARA_NAME_PUS_STYPE.equals(p.getName())
+                                && comp.getStringValue().equals(Integer.toString(subType))) {
+                            foundSubType = true;
+                        }
                     }
-                    if (PARA_NAME_PUS_TYPE.equals(p.getName())
-                            && comp.getStringValue().equals(Integer.toString(type))) {
-                        foundType = true;
-                    }
-                    if (PARA_NAME_PUS_STYPE.equals(p.getName())
-                            && comp.getStringValue().equals(Integer.toString(subType))) {
-                        foundSubType = true;
-                    }
+
                 }
 
-            }
-
-            if (foundApid && foundType && foundSubType) {
-                return seq;
+                if (foundApid && foundType && foundSubType) {
+                    return seq;
+                }
             }
         }
 

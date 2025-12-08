@@ -34,6 +34,7 @@ import org.yamcs.scos2k.ol.OLAlgorithmEngine;
 import org.yamcs.scos2k.ol.OLParser;
 import org.yamcs.scos2k.ol.ParseException;
 import org.yamcs.scos2k.ol.TokenMgrError;
+import org.yamcs.utils.IntHashSet;
 import org.yamcs.xtce.util.DoubleRange;
 import org.yamcs.xtce.AbsoluteTimeParameterType;
 import org.yamcs.xtce.AggregateParameterType;
@@ -100,6 +101,8 @@ public abstract class TmMibLoader extends BaseMibLoader {
     // where to extract the type and subType from the packet - in bytes
     int typeOffset = 7;
     int subTypeOffset = 8;
+    // if not null, the APIDs within will be excluded from the inheritance of the ccsds to ccsds-pus containers
+    IntHashSet nonPusApids;
 
     // where the data starts in the PUS1 packets - used to create the parameters for the command verifiers
     int pus1DataOffset;
@@ -120,7 +123,11 @@ public abstract class TmMibLoader extends BaseMibLoader {
             List<Number> l = tmConf.getList("packetsContainingWritableParameters");
             l.forEach(x -> packetsContainingWritableParameters.add(x.longValue()));
         }
-
+        if (tmConf.containsKey("nonPusApids")) {
+            List<Integer> l = tmConf.getList("nonPusApids");
+            this.nonPusApids = new IntHashSet();
+            l.forEach(apid -> this.nonPusApids.add(apid));
+        }
     }
 
     protected void loadTelemetry() {
@@ -1078,7 +1085,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
         Map<Long, TpcfRecord> tpcfRecods = loadTpcf();
         int[] apidtsypes = pidRecords.values().stream().mapToInt(r -> r.getApidTypeSubtype()).distinct().toArray();
 
-        createRootPusContainers(spaceSystem, typeOffset, subTypeOffset);
+        createRootPusContainers(spaceSystem, typeOffset, subTypeOffset, nonPusApids);
 
         for (int apidtstype : apidtsypes) {
             int type = (apidtstype >> 8) & 0xFF;

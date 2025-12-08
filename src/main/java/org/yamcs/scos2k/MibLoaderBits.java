@@ -3,15 +3,18 @@ package org.yamcs.scos2k;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.yamcs.xtce.ANDedConditions;
 import org.yamcs.xtce.AggregateArgumentType;
 import org.yamcs.xtce.AggregateDataType;
 import org.yamcs.xtce.AlgorithmCalibrator;
 import org.yamcs.xtce.BinaryDataEncoding;
 import org.yamcs.xtce.Comparison;
 import org.yamcs.xtce.ComparisonList;
+import org.yamcs.xtce.Condition;
 import org.yamcs.xtce.CustomAlgorithm;
 import org.yamcs.xtce.DataEncoding;
 import org.yamcs.mdb.DatabaseLoadException;
+import org.yamcs.utils.IntHashSet;
 import org.yamcs.xtce.FloatDataEncoding;
 import org.yamcs.xtce.IntegerArgumentType;
 import org.yamcs.xtce.IntegerDataEncoding;
@@ -40,7 +43,8 @@ public class MibLoaderBits {
     static final String PARA_NAME_SEQCOUNT = "ccsds_seqcount";
     static final String PARA_NAME_PUS_TYPE = "pus_type";
     static final String PARA_NAME_PUS_STYPE = "pus_stype";
-    static final String CONTAINER_NAME_ROOT = "ccsds-pus";
+    static final String CCSDS_CONTAINER_NAME = "ccsds";
+    static final String CCSDS_PUS_CONTAINER_NAME = "ccsds-pus";
 
     // these parameters are added to the data part of PUS1 packets for being used in the command verification
     static final String PARA_NAME_PUS1_APID = "pus1_apid";
@@ -257,16 +261,20 @@ public class MibLoaderBits {
     }
 
     /**
-     * Creates the root CCSDS container containing the APID, TYPE and SUBTYPE and a list of sub-containers one for each
-     * type
+     * Creates the root CCSDS containers:
+     * <ul>
+     * <li>ccsds containing the primary header definition including APID
+     * <li>ccsds-pus containing the PUS TYPE and SUBTYPE
+     * </ul>
      * 
      * @param spaceSystem
      * @param typeOffset
      * @param subtypeOffset
      * @param types
      */
-    static void createRootPusContainers(SpaceSystem spaceSystem, int typeOffset, int subtypeOffset) {
-        SequenceContainer ccsds = new SequenceContainer(CONTAINER_NAME_ROOT);
+    static void createRootPusContainers(SpaceSystem spaceSystem, int typeOffset, int subtypeOffset,
+            IntHashSet nonPusApids) {
+        SequenceContainer ccsds = new SequenceContainer(CCSDS_CONTAINER_NAME);
         spaceSystem.addSequenceContainer(ccsds);
         // spaceSystem.setRootSequenceContainer(ccsds);
         Parameter ccsdsApid = new Parameter(PARA_NAME_APID);
@@ -279,16 +287,31 @@ public class MibLoaderBits {
         ccsds.addEntry(new ParameterEntry(16, ReferenceLocationType.CONTAINER_START, ccsdsSeqCount));
         spaceSystem.addParameter(ccsdsSeqCount);
 
+
+        SequenceContainer ccsdsPus = new SequenceContainer(CCSDS_PUS_CONTAINER_NAME);
+        ccsdsPus.setBaseContainer(ccsds);
+        if (nonPusApids != null) {
+            ANDedConditions restrictionCriteria = new ANDedConditions();
+            nonPusApids.forEach(apid -> {
+                restrictionCriteria.addConditionExpression(
+                        new Condition(OperatorType.INEQUALITY, new ParameterInstanceRef(ccsdsApid, false),
+                                Integer.toString(apid)));
+            });
+            ccsdsPus.setRestrictionCriteria(restrictionCriteria);
+        }
+        spaceSystem.addSequenceContainer(ccsdsPus);
+
         IntegerParameterType uint8 = getUnsignedParameterType(spaceSystem, 8);
 
         Parameter pusPacketType = new Parameter(PARA_NAME_PUS_TYPE);
         pusPacketType.setParameterType(uint8);
-        ccsds.addEntry(new ParameterEntry(8 * typeOffset, ReferenceLocationType.CONTAINER_START, pusPacketType));
+        ccsdsPus.addEntry(new ParameterEntry(8 * typeOffset, ReferenceLocationType.CONTAINER_START, pusPacketType));
         spaceSystem.addParameter(pusPacketType);
 
         Parameter pusPacketSubType = new Parameter(PARA_NAME_PUS_STYPE);
         pusPacketSubType.setParameterType(uint8);
-        ccsds.addEntry(new ParameterEntry(8 * subtypeOffset, ReferenceLocationType.CONTAINER_START, pusPacketSubType));
+        ccsdsPus.addEntry(
+                new ParameterEntry(8 * subtypeOffset, ReferenceLocationType.CONTAINER_START, pusPacketSubType));
         spaceSystem.addParameter(pusPacketSubType);
     }
 
@@ -306,7 +329,7 @@ public class MibLoaderBits {
         Parameter ccsdsApid = spaceSystem.getParameter(PARA_NAME_APID);
         Parameter pusPacketType = spaceSystem.getParameter(PARA_NAME_PUS_TYPE);
         Parameter pusPacketSubType = spaceSystem.getParameter(PARA_NAME_PUS_STYPE);
-        SequenceContainer ccsds = spaceSystem.getSequenceContainer(CONTAINER_NAME_ROOT);
+        SequenceContainer ccsds = spaceSystem.getSequenceContainer(CCSDS_PUS_CONTAINER_NAME);
 
         SequenceContainer container = new SequenceContainer(name);
         container.setBaseContainer(ccsds);
