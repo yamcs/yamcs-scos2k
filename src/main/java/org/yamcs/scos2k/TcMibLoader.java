@@ -31,6 +31,7 @@ import org.yamcs.xtce.ArgumentType;
 import org.yamcs.xtce.ArrayArgumentType;
 import org.yamcs.xtce.BaseDataType;
 import org.yamcs.xtce.BinaryArgumentType;
+import org.yamcs.xtce.BinaryDataEncoding;
 import org.yamcs.xtce.BooleanDataType;
 import org.yamcs.xtce.CheckWindow;
 import org.yamcs.xtce.CheckWindow.TimeWindowIsRelativeToType;
@@ -515,6 +516,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                     continue;
                 }
             }
+
             String arrayAgrName = null;
             if ("A".equalsIgnoreCase(cdf.eltype)) {
                 int sizeInBits = cdf.ellen;
@@ -696,22 +698,31 @@ public abstract class TcMibLoader extends TmMibLoader {
         arg.setShortDescription(cpc.descr);
         ArgumentType.Builder<?> argType;
 
-        if ("C".equals(cpc.categ)) {
-            if (cpc.ccaref == null) {
-                throw new MibLoadException(ctx, "For parameter '" + cpc.pname + " CPC_CCAREF was not specified");
-            }
-            argType = createArgumentTypeCcateg(cdf);
-        } else if ("T".equals(cpc.categ)) {
-            argType = createArgumentTypeTcateg(cdf);
-        } else if ("N".equals(cpc.categ)) {
-            argType = createArgumentTypeNcateg(cdf);
-        } else if ("P".equals(cpc.categ)) {
-            argType = createParameterIdArgumentType(cdf);
-        } else if ("A".equals(cpc.categ)) {
-            argType = createArgumentTypeAcateg(cdf);
+        if (cpc.ptc == 11) {
+            // Deduced command arguments are not supported as of now (they are not supported by SCOS2K either)
+            argType = new BinaryArgumentType.Builder();
+            var encoding = new BinaryDataEncoding.Builder();
+            encoding.setType(BinaryDataEncoding.Type.LEADING_SIZE).setSizeInBitsOfSizeTag(0);
+            argType.setName(cpc.pname)
+                    .setEncoding(encoding);
         } else {
-            throw new MibLoadException(ctx,
-                    "argument '" + cpc.pname + ": CPC_CATEG=" + cpc.categ + " not supported");
+            if ("C".equals(cpc.categ)) {
+                if (cpc.ccaref == null) {
+                    throw new MibLoadException(ctx, "For parameter '" + cpc.pname + " CPC_CCAREF was not specified");
+                }
+                argType = createArgumentTypeCcateg(cdf);
+            } else if ("T".equals(cpc.categ)) {
+                argType = createArgumentTypeTcateg(cdf);
+            } else if ("N".equals(cpc.categ)) {
+                argType = createArgumentTypeNcateg(cdf);
+            } else if ("P".equals(cpc.categ)) {
+                argType = createParameterIdArgumentType(cdf);
+            } else if ("A".equals(cpc.categ)) {
+                argType = createArgumentTypeAcateg(cdf);
+            } else {
+                throw new MibLoadException(ctx,
+                        "argument '" + cpc.pname + ": CPC_CATEG=" + cpc.categ + " not supported");
+            }
         }
         if (cpc.unit != null && cpc.ptc != 12) {// we exclude 12 because aggregate arguments cannot have units
             ((BaseDataType.Builder<?>) argType).addUnit(new UnitType(cpc.unit));
