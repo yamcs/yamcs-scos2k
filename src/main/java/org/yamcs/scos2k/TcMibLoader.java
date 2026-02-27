@@ -773,7 +773,9 @@ public abstract class TcMibLoader extends TmMibLoader {
             type = new EnumeratedArgumentType.Builder().setName("parameter_id_" + cpc.pfc);
             for (MibParameter mp : parameters.values()) {
                 if (mp.pcf.pid != -1) {
-                    type.addEnumerationValue(new ValueEnumeration(mp.pcf.pid, mp.name()));
+                    var ve = new ValueEnumeration(mp.pcf.pid, mp.name());
+                    ve.setDescription(mp.pcf.descr);
+                    type.addEnumerationValue(ve);
                 }
             }
             type.setEncoding(encoding);
