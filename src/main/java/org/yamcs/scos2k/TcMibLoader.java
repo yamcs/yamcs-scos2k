@@ -19,6 +19,7 @@ import org.yamcs.scos2k.MonitoringData.PrfRecord;
 import org.yamcs.tctm.pus.PusCommandPostprocessor;
 import org.yamcs.scos2k.CommandingData.TcHeaderRecord;
 import org.yamcs.utils.StringConverter;
+import org.yamcs.utils.YObjectLoader;
 import org.yamcs.xtce.AbsoluteTimeArgumentType;
 import org.yamcs.xtce.AggregateArgumentType;
 import org.yamcs.xtce.AncillaryData;
@@ -103,6 +104,7 @@ public abstract class TcMibLoader extends TmMibLoader {
     Map<String, Argument> headerArgs = new HashMap<>();
 
     private int uncertaintyPeriod;
+    private ParameterIdEnumerationsProvider parameterIdEnumerationsProvider;
 
     public TcMibLoader(YConfiguration config) throws ConfigurationException {
         super(config);
@@ -110,6 +112,10 @@ public abstract class TcMibLoader extends TmMibLoader {
         vblParamLengthBytes = tcConf.getInt("vblParamLengthBytes", 1);
         allowApidChange = tcConf.getBoolean("allowApidChange", false);
         allowAckChange = tcConf.getBoolean("allowAckChange", false);
+        if (tcConf.containsKey("parameterIdEnumerationsProviderClassName")) {
+            parameterIdEnumerationsProvider = YObjectLoader
+                    .loadObject(tcConf.getString("parameterIdEnumerationsProviderClassName"));
+        }
     }
 
     protected void loadCommands() {
@@ -532,7 +538,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                     arraySize = new FixedIntegerValue(Long.parseLong(cdf.value, 16));
                 }
             } else if ("E".equalsIgnoreCase(cdf.eltype)) {
-                Argument arg = createArgument(cdf);
+                Argument arg = createArgument(mc, cdf);
                 se = new ArgumentEntry(arg);
                 String name = arg.getName();
                 if (mc.getArgument(name) != null) {
@@ -552,7 +558,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                 }
                 mc.addArgument(arg);
             } else if ("F".equalsIgnoreCase(cdf.eltype)) {
-                Argument arg = createArgument(cdf);
+                Argument arg = createArgument(mc, cdf);
                 se = new ArgumentEntry(arg);
                 String name = arg.getName();
                 if (abstractMc.getArgument(name) != null) {
@@ -644,7 +650,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                         .build();
                 m = new Member("FIXED" + (count++), idt);
             } else if ("E".equalsIgnoreCase(cdf.eltype) || "F".equalsIgnoreCase(cdf.eltype)) {
-                Argument arg = createArgument(cdf);
+                Argument arg = createArgument(mc, cdf);
                 m = new Member(arg.getName(), arg.getArgumentType());
                 m.setShortDescription(arg.getShortDescription());
             } else {
@@ -672,7 +678,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                     .build();
 
         } else if ("E".equalsIgnoreCase(cdf.eltype) || "F".equalsIgnoreCase(cdf.eltype)) {
-            Argument arg = createArgument(cdf);
+            Argument arg = createArgument(mc, cdf);
             atype = arg.getArgumentType();
             argName = cdf.cpc.pname;
         } else {
@@ -692,7 +698,7 @@ public abstract class TcMibLoader extends TmMibLoader {
         container.addEntry(new ArgumentEntry(arg));
     }
 
-    private Argument createArgument(CdfRecord cdf) {
+    private Argument createArgument(MetaCommand mc, CdfRecord cdf) {
         CpcRecord cpc = cdf.cpc;
         Argument arg = new Argument(cpc.pname);
         arg.setShortDescription(cpc.descr);
@@ -716,7 +722,7 @@ public abstract class TcMibLoader extends TmMibLoader {
             } else if ("N".equals(cpc.categ)) {
                 argType = createArgumentTypeNcateg(cdf);
             } else if ("P".equals(cpc.categ)) {
-                argType = createParameterIdArgumentType(cdf);
+                argType = createParameterIdArgumentType(mc, cdf);
             } else if ("A".equals(cpc.categ)) {
                 argType = createArgumentTypeAcateg(cdf);
             } else {
@@ -761,25 +767,40 @@ public abstract class TcMibLoader extends TmMibLoader {
         }
     }
 
-    private ArgumentType.Builder<?> createParameterIdArgumentType(CdfRecord cdf) {
+    private ArgumentType.Builder<?> createParameterIdArgumentType(MetaCommand mc, CdfRecord cdf) {
         CpcRecord cpc = cdf.cpc;
         if (cpc.ptc != 3) {
             throw new MibLoadException(ctx,
                     "Parameter '" + cpc.pname + " of categ 'P' should have CPC_PTC=4 instead of " + cpc.ptc);
         }
-        EnumeratedArgumentType.Builder type = parameterIdArgs.get(cpc.pfc);
-        if (type == null) {
+
+        EnumeratedArgumentType.Builder type;
+        if (parameterIdEnumerationsProvider != null) {
             DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
             type = new EnumeratedArgumentType.Builder().setName("parameter_id_" + cpc.pfc);
-            for (MibParameter mp : parameters.values()) {
-                if (mp.pcf.pid != -1) {
-                    var ve = new ValueEnumeration(mp.pcf.pid, mp.name());
-                    ve.setDescription(mp.pcf.descr);
-                    type.addEnumerationValue(ve);
-                }
+            for (var ve : parameterIdEnumerationsProvider.getParameterIdEnumerations(this, mc)) {
+                type.addEnumerationValue(ve);
             }
             type.setEncoding(encoding);
             parameterIdArgs.put(cpc.pfc, type);
+
+        } else {
+            type = parameterIdArgs.get(cpc.pfc);
+            if (type == null) {
+                DataEncoding.Builder<?> encoding = getDataEncoding(ctx, cpc.ptc, cpc.pfc, cdf.vplb);
+                type = new EnumeratedArgumentType.Builder().setName("parameter_id_" + cpc.pfc);
+
+                for (MibParameter mp : parameters.values()) {
+                    if (mp.pcf.pid != -1) {
+                        var ve = new ValueEnumeration(mp.pcf.pid, mp.name());
+                        ve.setDescription(mp.pcf.descr);
+                        type.addEnumerationValue(ve);
+                    }
+                }
+
+                type.setEncoding(encoding);
+                parameterIdArgs.put(cpc.pfc, type);
+            }
         }
         return type;
     }
@@ -1423,4 +1444,6 @@ public abstract class TcMibLoader extends TmMibLoader {
 
     record Pus1VerifierRecord(String stage, CheckWindow checkWindow) implements CommandVerifierInfo {
     }
+
+
 }

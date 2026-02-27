@@ -1,6 +1,5 @@
 package org.yamcs.scos2k;
 
-import org.yamcs.utils.IntHashSet;
 import org.yamcs.xtce.TimeEpoch;
 
 public class MibConfig {

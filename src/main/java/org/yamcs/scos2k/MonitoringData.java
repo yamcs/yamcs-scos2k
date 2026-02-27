@@ -226,6 +226,10 @@ public class MonitoringData {
             return "D".equals(natur);
         }
 
+        public String getDescription() {
+            return descr;
+        }
+
         @Override
         public String toString() {
             return "PcfRecord [name=" + name + ", descr=" + descr + ", ptc=" + ptc + ", pfc=" + pfc + ", pcfCateg="

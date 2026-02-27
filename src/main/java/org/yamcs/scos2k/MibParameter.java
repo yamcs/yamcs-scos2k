@@ -36,6 +36,9 @@ public class MibParameter {
         return pcf.pfc;
     }
 
+    public PcfRecord getPcfRecord() {
+        return pcf;
+    }
     public String getTypeName() {
         StringBuilder sb = new StringBuilder();
         sb.append("ptcpfc_").append(pcf.ptc).append("_").append(pcf.pfc)

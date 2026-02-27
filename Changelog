@@ -1,3 +1,11 @@
+Version 0.8.2 released 27-Feb-2026
+- allow specifying a custom provider for the enumerations to be used for the command arguments of type parameter id (CPC_CATEG='p')
+- added description to these enumerations (when a custom provider is not specified)
+
+Version 0.8.1 released 19-Dec-2026
+- allow specifying a list of non PUS APIDs
+- arguments of type "deduced" (cpc.ptc=11) will be created as binary arguments with binary encoding
+
 Version 0.8.0 released 19-Sep-2025
 - updated to work with Yamcs 5.12
 

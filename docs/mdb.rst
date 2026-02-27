@@ -52,7 +52,9 @@ allowApidChange (boolean)
 allowAckChange (boolean)
     same as above but it refers to the ack flags that configure the command acknowledgments. If true the user can select which acks flags are set, if false the MIB value from the CCF table isenforced.
 
-
+parameterIdEnumerationsProviderClassName (string)
+    if specified, allows defining a class that will generate the enumerations to be used for the command arguments of type parameter id (CPC_CATEG='p').
+    This specified class name has to implement the `org.yamcs.scos2k.ParameterIdEnumerationsProvider` interface.
 
 TM Options
 ----------
