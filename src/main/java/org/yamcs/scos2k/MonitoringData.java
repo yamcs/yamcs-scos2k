@@ -200,7 +200,7 @@ public class MonitoringData {
          * Unsigned integer number in the range (0 ... 2^32 - 1).
          * </p>
          */
-        public int pid;
+        public long pid = -1;
 
         public String unit;
 

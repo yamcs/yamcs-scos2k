@@ -374,7 +374,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             pcf.natur = getString(line, IDX_PCF_NATUR, null);
             pcf.inter = getString(line, IDX_PCF_INTER, null);
             pcf.vplb = getInt(line, IDX_PCF_VPLB, vblParamLengthBytes);
-            pcf.pid = getInt(line, IDX_PCF_PID, -1);
+            pcf.pid = getLong(line, IDX_PCF_PID, -1);
             pcf.unit = getString(line, IDX_PCF_UNIT, null);
             pcf.uscon = "Y".equals(getString(line, IDX_PCF_USCON, null));
             pcf.parval = getString(line, IDX_PCF_PARVAL, null);
@@ -512,7 +512,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             p.setShortDescription(mp.pcf.descr);
             p.setParameterType(mp.ptype);
             if (mp.pcf.pid != -1) {
-                p.addAlias(OB_PID_NAMESPACE, Integer.toString(mp.pcf.pid));
+                p.addAlias(OB_PID_NAMESPACE, Long.toString(mp.pcf.pid));
             }
             spaceSystem.addParameter(p);
         }
