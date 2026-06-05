@@ -16,7 +16,6 @@ import org.yamcs.scos2k.CommandingData.CdfRecord;
 import org.yamcs.scos2k.CommandingData.CpcRecord;
 import org.yamcs.scos2k.MibLoaderBits.MibLoadException;
 import org.yamcs.scos2k.MonitoringData.PrfRecord;
-import org.yamcs.tctm.pus.PusCommandPostprocessor;
 import org.yamcs.scos2k.CommandingData.TcHeaderRecord;
 import org.yamcs.utils.StringConverter;
 import org.yamcs.utils.YObjectLoader;
@@ -1309,8 +1308,7 @@ public abstract class TcMibLoader extends TmMibLoader {
             alg.setInputList(
                     Arrays.asList(
                             getAlgoApidInput(mc, "sentApid"),
-                            getAlgoCmdHistInput(PusCommandPostprocessor.CCSDS_SEQCOUNT_PARA_NAME,
-                                    "sentSeq"),
+                            getAlgoCmdHistInput("ccsds-seqcount", "sentSeq"),
                             getAlgoParaInput(PARA_NAME_PUS1_APID, "rcvdApid"),
                             getAlgoParaInput(PARA_NAME_PUS1_SEQCOUNT, "rcvdSeq"),
                             getAlgoParaInput(PARA_NAME_PUS_STYPE, "reportSubType")));
