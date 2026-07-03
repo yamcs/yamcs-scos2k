@@ -504,23 +504,15 @@ public abstract class TcMibLoader extends TmMibLoader {
             var cdf = l.get(k);
             SequenceEntry se;
             IntegerValue arraySize = null;
-            if (cdf.grpsize > 0) {
-                if (k + cdf.grpsize >= l.size()) {
-                    throw new MibLoadException(ctx,
-                            "CFD group size " + cdf.grpsize + " for " + cdf.cpc.pname
-                                    + " is larger than the number of command parameters following it for command "
-                                    + mc.getName());
-                }
-                if (l.subList(k + 1, k + cdf.grpsize + 1).stream().anyMatch(r -> r.grpsize > 0)) {
-                    // we can fix this one when we have support for aggregates where one member gives the length of
-                    // another member which is an array
-                    log.warn(
-                            "Command {} has multi-level groups and these are not supported. Generating a single element group.",
-                            mc.getName());
-                    addFixedSingleGroup(container, cdf);
-                    continue;
-                }
+            if (cdf.grpsize > 0 && k + cdf.grpsize >= l.size()) {
+                throw new MibLoadException(ctx,
+                        "CFD group size " + cdf.grpsize + " for " + cdf.cpc.pname
+                                + " is larger than the number of command parameters following it for command "
+                                + mc.getName());
             }
+            // true if the group has more than one member, or its single member is itself a (nested) group repeater
+            boolean multiElementGroup = cdf.grpsize > 1
+                    || (cdf.grpsize == 1 && l.get(k + 1).grpsize > 0);
 
             String arrayAgrName = null;
             if ("A".equalsIgnoreCase(cdf.eltype)) {
@@ -549,7 +541,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                 }
 
                 if (cdf.grpsize > 0) {
-                    if (cdf.grpsize > 1) {
+                    if (multiElementGroup) {
                         arrayAgrName = arg.getName();
                         arg.setName(arrayAgrName + "_count");
                     }
@@ -568,7 +560,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                     arg.setName(name + "_" + i);
                 }
                 if (cdf.grpsize > 0) {
-                    if (cdf.grpsize > 1) {
+                    if (multiElementGroup) {
                         arrayAgrName = arg.getName();
                         arg.setName(arrayAgrName + "_count");
                     }
@@ -596,11 +588,11 @@ public abstract class TcMibLoader extends TmMibLoader {
             }
             container.addEntry(se);
 
-            if (cdf.grpsize == 1) {
+            if (cdf.grpsize == 1 && !multiElementGroup) {
                 addArgumentGroupEntrySingleElementArray(mc, container, "arg" + (count++),
                         l.get(k + 1), arraySize);
                 k++;
-            } else if (cdf.grpsize > 1) {
+            } else if (cdf.grpsize > 0) {
                 addArgumentGroupEntryAggregate(mc, container, arrayAgrName, l.subList(k + 1, k + cdf.grpsize + 1),
                         arraySize);
                 k += cdf.grpsize;
@@ -609,67 +601,105 @@ public abstract class TcMibLoader extends TmMibLoader {
 
     }
 
-    /**
-     * This is called when encountering command arguments group inside group.
-     * <p>
-     * Argument groups are handled as arrays, see {@link #addArgumentGroupEntry}. Because arrays inside arrays are not
-     * supported, we fix the size of all the groups except the innermost one to 1.
-     * <p>
-     * This method generates a fixed entry with the size of 1
-     */
-    private void addFixedSingleGroup(CommandContainer container, CdfRecord cdf) {
-        int sizeInBits;
-        if ("A".equalsIgnoreCase(cdf.eltype)) {
-            sizeInBits = cdf.ellen;
-        } else if ("E".equalsIgnoreCase(cdf.eltype) || "F".equalsIgnoreCase(cdf.eltype)) {
-            CpcRecord cpc = cdf.cpc;
-            sizeInBits = MibLoaderBits.sizeInBits(cpc.pfc, cpc.ptc);
-        } else {
-            throw new MibLoadException(ctx, "parameter with CDF_ELTYPE=" + cdf.eltype + " not supported");
-        }
-
-        byte[] binary = new byte[] { 1 };
-        if (cdf.ellen > binary.length * 8) {
-            byte[] tmp = new byte[(sizeInBits >> 3) + 1];
-            System.arraycopy(binary, 0, tmp, tmp.length - binary.length, binary.length);
-            binary = tmp;
-        }
-        container.addEntry(new FixedValueEntry(cdf.descr, binary, sizeInBits));
-    }
-
     private void addArgumentGroupEntryAggregate(MetaCommand mc, CommandContainer container,
             String argName, List<CdfRecord> cdfList, IntegerValue arraySize) {
-        AggregateArgumentType.Builder builder = new AggregateArgumentType.Builder();
-        int count = 0;
-        for (var cdf : cdfList) {
-            Member m;
-            if ("A".equalsIgnoreCase(cdf.eltype)) {
-                IntegerArgumentType idt = new IntegerArgumentType.Builder().setSizeInBits(cdf.ellen)
-                        .setInitialValue(cdf.value)
-                        .build();
-                m = new Member("FIXED" + (count++), idt);
-            } else if ("E".equalsIgnoreCase(cdf.eltype) || "F".equalsIgnoreCase(cdf.eltype)) {
-                Argument arg = createArgument(mc, cdf);
-                m = new Member(arg.getName(), arg.getArgumentType());
-                m.setShortDescription(arg.getShortDescription());
-            } else {
-                throw new MibLoadException(ctx, "parameter with CDF_ELTYPE=" + cdf.eltype + " not supported");
-            }
-            builder.addMember(m);
-        }
-        var aggrType = builder.build();
-        ArrayArgumentType arrtype = new ArrayArgumentType.Builder().setElementType(aggrType)
-                .setSize(Arrays.asList(arraySize))
-                .build();
-        Argument arg = new Argument(argName);
-        arg.setArgumentType(arrtype);
+        Member m = buildAggregateArrayMember(mc, argName, cdfList, arraySize);
+        Argument arg = new Argument(m.getName());
+        arg.setArgumentType((ArgumentType) m.getType());
         mc.addArgument(arg);
         container.addEntry(new ArgumentEntry(arg));
     }
 
     private void addArgumentGroupEntrySingleElementArray(MetaCommand mc, CommandContainer container,
             String argName, CdfRecord cdf, IntegerValue arraySize) {
+        Member m = buildSingleElementArrayMember(mc, argName, cdf, arraySize);
+        Argument arg = new Argument(m.getName());
+        arg.setArgumentType((ArgumentType) m.getType());
+        if (cdf.cpc != null) {
+            arg.setShortDescription(cdf.cpc.descr);
+        }
+        mc.addArgument(arg);
+        container.addEntry(new ArgumentEntry(arg));
+    }
 
+    /**
+     * Builds the members of an aggregate argument type from a (possibly nested) list of CDF records.
+     * <p>
+     * A CDF record with a non-zero CDF_GRPSIZE is a group repeater: the following grpsize records form a group that
+     * repeats at load time, represented as an array member (of a scalar type when the group has a single member, of
+     * an aggregate type otherwise). Since one such group can itself contain a nested group repeater, this is
+     * recursive.
+     * <p>
+     * The array size of a repeating group is a reference (by name) to the repeater member. Since the repeater is
+     * itself a sibling member of the surrounding aggregate rather than a top level command argument, this relies on
+     * Yamcs resolving such references against the enclosing aggregate instance at command encoding time (supported
+     * since Yamcs 5.11.9).
+     */
+    private List<Member> buildAggregateMembers(MetaCommand mc, List<CdfRecord> cdfList) {
+        List<Member> members = new ArrayList<>();
+        int count = 0;
+        for (int j = 0; j < cdfList.size(); j++) {
+            var cdf = cdfList.get(j);
+            if (cdf.grpsize > 0 && j + cdf.grpsize >= cdfList.size()) {
+                throw new MibLoadException(ctx,
+                        "CFD group size " + cdf.grpsize + " for " + cdf.cpc.pname
+                                + " is larger than the number of command parameters following it for command "
+                                + mc.getName());
+            }
+            boolean multiElementGroup = cdf.grpsize > 1
+                    || (cdf.grpsize == 1 && cdfList.get(j + 1).grpsize > 0);
+
+            Member m;
+            IntegerValue arraySize = null;
+            if ("A".equalsIgnoreCase(cdf.eltype)) {
+                IntegerArgumentType idt = new IntegerArgumentType.Builder().setSizeInBits(cdf.ellen)
+                        .setInitialValue(cdf.value)
+                        .build();
+                m = new Member("FIXED" + (count++), idt);
+                if (cdf.grpsize > 0) {
+                    arraySize = new FixedIntegerValue(Long.parseLong(cdf.value, 16));
+                }
+            } else if ("E".equalsIgnoreCase(cdf.eltype) || "F".equalsIgnoreCase(cdf.eltype)) {
+                Argument arg = createArgument(mc, cdf);
+                m = new Member(arg.getName(), arg.getArgumentType());
+                m.setShortDescription(arg.getShortDescription());
+                if (cdf.grpsize > 0) {
+                    // the repeater member itself is not a top level command argument; the placeholder Argument
+                    // below is only used to carry its name, resolved against the aggregate instance at encoding time
+                    arraySize = new DynamicIntegerValue(new ArgumentInstanceRef(new Argument(arg.getName())));
+                }
+            } else {
+                throw new MibLoadException(ctx, "parameter with CDF_ELTYPE=" + cdf.eltype + " not supported");
+            }
+            members.add(m);
+
+            if (cdf.grpsize == 1 && !multiElementGroup) {
+                members.add(buildSingleElementArrayMember(mc, "arg" + (count++), cdfList.get(j + 1), arraySize));
+                j++;
+            } else if (cdf.grpsize > 0) {
+                members.add(buildAggregateArrayMember(mc, "arg" + (count++),
+                        cdfList.subList(j + 1, j + cdf.grpsize + 1), arraySize));
+                j += cdf.grpsize;
+            }
+        }
+        return members;
+    }
+
+    private Member buildAggregateArrayMember(MetaCommand mc, String memberName, List<CdfRecord> cdfList,
+            IntegerValue arraySize) {
+        AggregateArgumentType.Builder builder = new AggregateArgumentType.Builder();
+        for (Member m : buildAggregateMembers(mc, cdfList)) {
+            builder.addMember(m);
+        }
+        var aggrType = builder.build();
+        ArrayArgumentType arrtype = new ArrayArgumentType.Builder().setElementType(aggrType)
+                .setSize(Arrays.asList(arraySize))
+                .build();
+        return new Member(memberName, arrtype);
+    }
+
+    private Member buildSingleElementArrayMember(MetaCommand mc, String memberName, CdfRecord cdf,
+            IntegerValue arraySize) {
         ArgumentType atype;
         if ("A".equalsIgnoreCase(cdf.eltype)) {
             atype = new IntegerArgumentType.Builder().setSizeInBits(cdf.ellen)
@@ -679,7 +709,7 @@ public abstract class TcMibLoader extends TmMibLoader {
         } else if ("E".equalsIgnoreCase(cdf.eltype) || "F".equalsIgnoreCase(cdf.eltype)) {
             Argument arg = createArgument(mc, cdf);
             atype = arg.getArgumentType();
-            argName = cdf.cpc.pname;
+            memberName = cdf.cpc.pname;
         } else {
             throw new MibLoadException(ctx, "parameter with CDF_ELTYPE=" + cdf.eltype + " not supported");
         }
@@ -687,14 +717,7 @@ public abstract class TcMibLoader extends TmMibLoader {
         ArrayArgumentType arrtype = new ArrayArgumentType.Builder().setElementType(atype)
                 .setSize(Arrays.asList(arraySize))
                 .build();
-        Argument arg = new Argument(argName);
-        arg.setArgumentType(arrtype);
-        if (cdf.cpc != null) {
-            arg.setShortDescription(cdf.cpc.descr);
-        }
-        mc.addArgument(arg);
-
-        container.addEntry(new ArgumentEntry(arg));
+        return new Member(memberName, arrtype);
     }
 
     private Argument createArgument(MetaCommand mc, CdfRecord cdf) {
@@ -1417,7 +1440,6 @@ public abstract class TcMibLoader extends TmMibLoader {
             throw new MibLoadException(
                     "Cannot find APID argument for command " + cmd.getName() + " or its parent");
         }
-        System.out.println("found apidArg: " + apidArg);
         ArgumentInstanceRef argInstRef = new ArgumentInstanceRef(apidArg, false);
 
         return new InputParameter(argInstRef, inputName);
