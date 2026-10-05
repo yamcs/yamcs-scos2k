@@ -348,7 +348,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
     final static int IDX_PCF_SUBSYS = 16;
     final static int IDX_PCF_VALPAR = 17;
     final static int IDX_PCF_SPTTYPE = 18;
-    final static int IDX_PCF_VMASK = 23;
+    final static int IDX_PCF_DESCR2 = 23;
     final static int IDX_PCF_VPLB = 24;
     final static int IDX_PCF_PATCHABLE = 25;
 
@@ -379,6 +379,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             pcf.uscon = "Y".equals(getString(line, IDX_PCF_USCON, null));
             pcf.parval = getString(line, IDX_PCF_PARVAL, null);
             pcf.related = getString(line, IDX_PCF_RELATED, null);
+            pcf.descr2 = getString(line, IDX_PCF_DESCR2, null);
             MibParameter mp = new MibParameter(pcf);
 
             if (ptc == 13) {
@@ -510,6 +511,7 @@ public abstract class TmMibLoader extends BaseMibLoader {
             Parameter p = new Parameter(pname);
             p.setPersistent(true);
             p.setShortDescription(mp.pcf.descr);
+            p.setLongDescription(mp.pcf.descr2);
             p.setParameterType(mp.ptype);
             if (mp.pcf.pid != -1) {
                 p.addAlias(OB_PID_NAMESPACE, Long.toString(mp.pcf.pid));

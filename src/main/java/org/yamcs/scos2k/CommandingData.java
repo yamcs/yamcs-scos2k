@@ -20,6 +20,11 @@ public class CommandingData {
          * Textual description of the command parameter.
          */
         String descr;
+
+        /**
+         * An additional parameter description, up to 256 characters. Optional, only supported in SCOS 6.4.0 or higher.
+         */
+        String descr2;
         /**
          * Parameter Type Code
          */

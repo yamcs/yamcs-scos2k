@@ -1,4 +1,5 @@
 Unreleased
+- PCF_DESCR2 (pcf.dat) and CPC_DESCR2 (cpc.dat) are used as the long description of the parameters and command arguments
 - command parameters with (PTC, PFC) = (12, 1), i.e. embedded TCs like the activities of TC(11,4), are created as binary
   arguments annotated with the Yamcs:EmbeddedTc ancillary data (requires Yamcs 5.13.7). The PUS command post-processor fills in
   the sequence count, length and (optionally, see embeddedTcCrc) the checksum of the embedded TCs.

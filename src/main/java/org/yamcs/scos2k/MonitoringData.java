@@ -34,6 +34,11 @@ public class MonitoringData {
          */
         final String descr;
 
+        /**
+         * An additional parameter description, up to 256 characters. Optional, only supported in SCOS 6.4.0 or higher.
+         */
+        String descr2;
+
         final int ptc;
         final int pfc;
 

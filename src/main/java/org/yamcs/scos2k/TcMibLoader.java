@@ -617,6 +617,7 @@ public abstract class TcMibLoader extends TmMibLoader {
         arg.setArgumentType((ArgumentType) m.getType());
         if (cdf.cpc != null) {
             arg.setShortDescription(cdf.cpc.descr);
+            arg.setLongDescription(cdf.cpc.descr2);
         }
         mc.addArgument(arg);
         container.addEntry(new ArgumentEntry(arg));
@@ -663,6 +664,7 @@ public abstract class TcMibLoader extends TmMibLoader {
                 Argument arg = createArgument(mc, cdf);
                 m = new Member(arg.getName(), arg.getArgumentType());
                 m.setShortDescription(arg.getShortDescription());
+                m.setLongDescription(arg.getLongDescription());
                 if (cdf.grpsize > 0) {
                     // the repeater member itself is not a top level command argument; the placeholder Argument
                     // below is only used to carry its name, resolved against the aggregate instance at encoding time
@@ -724,6 +726,7 @@ public abstract class TcMibLoader extends TmMibLoader {
         CpcRecord cpc = cdf.cpc;
         Argument arg = new Argument(cpc.pname);
         arg.setShortDescription(cpc.descr);
+        arg.setLongDescription(cpc.descr2);
         ArgumentType.Builder<?> argType;
 
         if (cpc.ptc == 11) {
@@ -924,6 +927,7 @@ public abstract class TcMibLoader extends TmMibLoader {
     final static int IDX_CPC_DEFVAL = 12;
     final static int IDX_CPC_CORR = 13;
     final static int IDX_CPC_OBTID = 14;
+    final static int IDX_CPC_DESCR2 = 15;
 
     private void loadCpc() throws DatabaseLoadException {
         switchTo("cpc");
@@ -933,6 +937,7 @@ public abstract class TcMibLoader extends TmMibLoader {
             CpcRecord cpc = new CpcRecord();
             cpc.pname = line[IDX_CPC_PNAME];
             cpc.descr = getString(line, IDX_CPC_DESCR, null);
+            cpc.descr2 = getString(line, IDX_CPC_DESCR2, null);
             cpc.pfc = getInt(line, IDX_CPC_PFC);
             cpc.ptc = getInt(line, IDX_CPC_PTC);
             cpc.unit = getString(line, IDX_CPC_UNIT, null);
@@ -942,7 +947,7 @@ public abstract class TcMibLoader extends TmMibLoader {
             cpc.pafref = getString(line, IDX_CPC_PAFREF, null);
             cpc.inter = getString(line, IDX_CPC_INTER, "R");
             cpc.defval = getString(line, IDX_CPC_DEFVAL, null);
-            cpc.corr = getString(line, IDX_CPC_DEFVAL, "Y");
+            cpc.corr = getString(line, IDX_CPC_CORR, "Y");
             cpcRecords.put(cpc.pname, cpc);
         }
     }
