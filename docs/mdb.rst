@@ -56,6 +56,9 @@ parameterIdEnumerationsProviderClassName (string)
     if specified, allows defining a class that will generate the enumerations to be used for the command arguments of type parameter id (CPC_CATEG='p').
     This specified class name has to implement the `org.yamcs.scos2k.ParameterIdEnumerationsProvider` interface.
 
+Embedded TCs
+    Command parameters with (CPC_PTC, CPC_PFC) = (12, 1) embed complete TC packets into a command, for example the activities of a TC(11,4) "insert activities into the time-based schedule". They are created as binary arguments taking all the bytes of the value (the user enters the embedded packet in hexadecimal), annotated with the ``Yamcs:EmbeddedTc`` ancillary data. If the link uses the ``org.yamcs.pus.PusCommandPostprocessor``, the sequence count and the length of each embedded TC are filled in and a checksum is appended (controlled by the post-processor option ``embeddedTcCrc``). The embedded packet can therefore be entered with zero sequence count and length and without checksum. This also works for repeated groups (CDF_GRPSIZE), the elements being processed in order.
+
 TM Options
 ----------
 These options are specified under the TM keyword

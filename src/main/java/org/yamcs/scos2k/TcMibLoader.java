@@ -856,9 +856,17 @@ public abstract class TcMibLoader extends TmMibLoader {
                         + " (%d, %d)", cpc.ptc, cpc.pfc));
             }
 
-            AggregateArgumentType.Builder aggrb = new AggregateArgumentType.Builder();
-            MibLoaderBits.addPtc12Members(spaceSystem, aggrb, cpc.pfc);
-            return aggrb;
+            // the embedded packet (headers and body) is passed as one opaque binary value;
+            // the size of the encoding is not specified so the whole value is written
+            var bat = new BinaryArgumentType.Builder()
+                    .setName(cpc.pname)
+                    .setEncoding(new BinaryDataEncoding.Builder());
+            if (cpc.pfc == 1) {
+                // annotate the embedded TC such that the command post-processor fills in its sequence count,
+                // length and (optionally) checksum
+                bat.setAncillaryData(List.of(new AncillaryData(AncillaryData.KEY_EMBEDDED_TC, null)));
+            }
+            return bat;
         } else {
             return (ArgumentType.Builder<?>) getDataType(encoding, "arg_" + cpc.pname, false);
         }
