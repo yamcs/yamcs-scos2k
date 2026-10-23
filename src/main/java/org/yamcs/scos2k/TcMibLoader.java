@@ -847,7 +847,9 @@ public abstract class TcMibLoader extends TmMibLoader {
             ReferenceTime rt = new ReferenceTime(conf.timeEpoch);
             atype.setReferenceTime(rt);
             atype.setEncoding(encoding);
-            atype.setScaling(0, 0.001);
+            // CUC: coarse bytes count seconds, fine bytes are binary fractions of a second
+            int numFineBytes = (cpc.pfc - 3) % 4;
+            atype.setScaling(0, 1.0 / (1 << (8 * numFineBytes)));
             return atype;
         } else if (cpc.ptc == 12) {
             // (pfc, ptc) = (12, 1) is used to embed TC packets inside TM or TC packets.
