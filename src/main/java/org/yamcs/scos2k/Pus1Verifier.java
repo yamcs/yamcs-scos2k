@@ -40,6 +40,10 @@ import org.yamcs.xtce.Parameter;
  * position after the first 5. If present and the acknowledgement bit corresponding to the verification stage is not
  * set, the verifier is skipped: no PUS1 report is expected for that stage so it should not time out. The bits are as
  * defined by the PUS standard: 0b0001 acceptance, 0b0010 start, 0b0100 progress, 0b1000 completion.
+ * <p>
+ * An input named <b>reportType</b> should also be defined at any position after the first 5. It is the PUS type of
+ * the incoming packet, with a raw type as unsigned integer. The algorithm returns no result unless the type is 1. If
+ * the input is not defined, the type check is skipped.
  *
  * <p>
  * The algorithm checks the following conditions:
@@ -47,6 +51,7 @@ import org.yamcs.xtce.Parameter;
  * <ul>
  * <li><code>sentApid == rcvdApid</code></li>
  * <li><code>sentSeqCount == rcvdSeqCount</code></li>
+ * <li><code>reportType == 1</code></li>
  * <li>The <code>reportSubType=verificationStage or reportSubType=verificationStage+1</code></li>
  * </ul>
  * <p>
@@ -64,6 +69,8 @@ public class Pus1Verifier extends AbstractAlgorithmExecutor {
     private final MessageTemplate template;
     // index of the optional ackFlags input, -1 if not defined
     private final int ackFlagsIdx;
+    // index of the reportType input, -1 if not defined
+    private final int reportTypeIdx;
     public static AlgorithmExecutionResult NO_RESULT = new AlgorithmExecutionResult(Collections.emptyList());
 
 
@@ -74,6 +81,7 @@ public class Pus1Verifier extends AbstractAlgorithmExecutor {
         verificationStage = yc.getInt("stage");
 
         ackFlagsIdx = getInputIndex(algorithmDef, "ackFlags");
+        reportTypeIdx = getInputIndex(algorithmDef, "reportType");
 
         if (yc.containsKey("template")) {
             template = new MessageTemplate(yc.getString("template"));
@@ -117,6 +125,13 @@ public class Pus1Verifier extends AbstractAlgorithmExecutor {
         int rcvdApid = inputValues.get(2).getRawValue().getUint32Value();
         int rcvdSeq = inputValues.get(3).getRawValue().getUint32Value();
         int reportSubType = inputValues.get(4).getRawValue().getUint32Value();
+
+        if (reportTypeIdx >= 0) {
+            var reportType = inputValues.get(reportTypeIdx);
+            if (reportType == null || reportType.getRawValue().getUint32Value() != 1) {
+                return NO_RESULT;
+            }
+        }
 
         if (sentApid != rcvdApid || sentSeq != rcvdSeq) {
             log.trace("sentApid: {}, rvbdApid: {}, sentSeq: {}, rcvdSeq: {}; returning NO_RESULT", sentApid, rcvdApid,

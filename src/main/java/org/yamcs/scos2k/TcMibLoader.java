@@ -1348,7 +1348,8 @@ public abstract class TcMibLoader extends TmMibLoader {
                     getAlgoCmdHistInput("ccsds-seqcount", "sentSeq"),
                     getAlgoParaInput(PARA_NAME_PUS1_APID, "rcvdApid"),
                     getAlgoParaInput(PARA_NAME_PUS1_SEQCOUNT, "rcvdSeq"),
-                    getAlgoParaInput(PARA_NAME_PUS_STYPE, "reportSubType")));
+                    getAlgoParaInput(PARA_NAME_PUS_STYPE, "reportSubType"),
+                    getAlgoParaInput(PARA_NAME_PUS_TYPE, "reportType")));
             // allows the verifier to skip the stages not requested in the ack flags
             InputParameter ackInput = getAlgoAckInput(mc, "ackFlags");
             if (ackInput != null) {
