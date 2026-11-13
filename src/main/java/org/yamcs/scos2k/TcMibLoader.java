@@ -1330,12 +1330,12 @@ public abstract class TcMibLoader extends TmMibLoader {
         String suffix;
         CustomAlgorithm alg;
 
-        if (allowApidChange) {
-            // we need to make a new algorithm for each command because the APID is part of the command
+        if (allowApidChange || allowAckChange) {
+            // we need to make a new algorithm for each command because the APID or ACK is part of the command
             alg = null;
             suffix = "_" + mc.getName();
         } else {
-            // we can reuse the same algorithm because the APID is apart of the base command
+            // we can reuse the same algorithm because the APID and ACK are part of the base command
             suffix = "";
             alg = (CustomAlgorithm) spaceSystem.getAlgorithm("PUS_Verifier-" + stage);
         }
@@ -1343,13 +1343,18 @@ public abstract class TcMibLoader extends TmMibLoader {
         if (alg == null) {
             alg = new CustomAlgorithm("PUS_Verifier-" + stage + suffix);
             alg.setScope(Scope.COMMAND_VERIFICATION);
-            alg.setInputList(
-                    Arrays.asList(
-                            getAlgoApidInput(mc, "sentApid"),
-                            getAlgoCmdHistInput("ccsds-seqcount", "sentSeq"),
-                            getAlgoParaInput(PARA_NAME_PUS1_APID, "rcvdApid"),
-                            getAlgoParaInput(PARA_NAME_PUS1_SEQCOUNT, "rcvdSeq"),
-                            getAlgoParaInput(PARA_NAME_PUS_STYPE, "reportSubType")));
+            List<InputParameter> inputs = new ArrayList<>(Arrays.asList(
+                    getAlgoApidInput(mc, "sentApid"),
+                    getAlgoCmdHistInput("ccsds-seqcount", "sentSeq"),
+                    getAlgoParaInput(PARA_NAME_PUS1_APID, "rcvdApid"),
+                    getAlgoParaInput(PARA_NAME_PUS1_SEQCOUNT, "rcvdSeq"),
+                    getAlgoParaInput(PARA_NAME_PUS_STYPE, "reportSubType")));
+            // allows the verifier to skip the stages not requested in the ack flags
+            InputParameter ackInput = getAlgoAckInput(mc, "ackFlags");
+            if (ackInput != null) {
+                inputs.add(ackInput);
+            }
+            alg.setInputList(inputs);
             alg.setOutputList(Collections.emptyList());
             int verificationStage = switch (stage) {
             case "Acceptance" -> 1;
@@ -1458,6 +1463,36 @@ public abstract class TcMibLoader extends TmMibLoader {
         ArgumentInstanceRef argInstRef = new ArgumentInstanceRef(apidArg, false);
 
         return new InputParameter(argInstRef, inputName);
+    }
+
+    // find the ACK argument of the command sent, returns null if the command has no ACK field
+    InputParameter getAlgoAckInput(MetaCommand cmd, String inputName) {
+        String ackName = null;
+        for (var thr : tcHeaderRecords.values()) {
+            if (thr.ack == null) {
+                continue;
+            }
+            for (MetaCommand cmd1 = cmd; cmd1 != null; cmd1 = cmd1.getBaseMetaCommand()) {
+                if (cmd1 == thr.mc) {
+                    ackName = thr.ack.getName();
+                    break;
+                }
+            }
+        }
+        if (ackName == null) {
+            return null;
+        }
+        // with allowAckChange, the ACK argument is a copy defined in the command itself rather than in the header
+        for (MetaCommand cmd1 = cmd; cmd1 != null; cmd1 = cmd1.getBaseMetaCommand()) {
+            if (cmd1.getArgumentList() == null) {
+                continue;
+            }
+            Argument ackArg = cmd1.getArgument(ackName);
+            if (ackArg != null) {
+                return new InputParameter(new ArgumentInstanceRef(ackArg, false), inputName);
+            }
+        }
+        return null;
     }
 
     InputParameter getAlgoCmdHistInput(String name, String inputName) {

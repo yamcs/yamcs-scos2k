@@ -35,7 +35,12 @@ import org.yamcs.xtce.Parameter;
  * becuase it is converted from a command history attribute)
  * <p>
  * In addition to these 5, other inputs may be used to get values in case of failure.
- * 
+ * <p>
+ * An optional input named <b>ackFlags</b> (usually the ack flags argument of the command sent) may be defined at any
+ * position after the first 5. If present and the acknowledgement bit corresponding to the verification stage is not
+ * set, the verifier is skipped: no PUS1 report is expected for that stage so it should not time out. The bits are as
+ * defined by the PUS standard: 0b0001 acceptance, 0b0010 start, 0b0100 progress, 0b1000 completion.
+ *
  * <p>
  * The algorithm checks the following conditions:
  * </p>
@@ -57,6 +62,8 @@ public class Pus1Verifier extends AbstractAlgorithmExecutor {
 
     private final int verificationStage;
     private final MessageTemplate template;
+    // index of the optional ackFlags input, -1 if not defined
+    private final int ackFlagsIdx;
     public static AlgorithmExecutionResult NO_RESULT = new AlgorithmExecutionResult(Collections.emptyList());
 
 
@@ -66,6 +73,8 @@ public class Pus1Verifier extends AbstractAlgorithmExecutor {
 
         verificationStage = yc.getInt("stage");
 
+        ackFlagsIdx = getInputIndex(algorithmDef, "ackFlags");
+
         if (yc.containsKey("template")) {
             template = new MessageTemplate(yc.getString("template"));
         } else {
@@ -73,8 +82,28 @@ public class Pus1Verifier extends AbstractAlgorithmExecutor {
         }
     }
 
+    private static int getInputIndex(Algorithm algorithmDef, String inputName) {
+        var algInputList = algorithmDef.getInputList();
+        for (int i = 0; i < algInputList.size(); i++) {
+            if (inputName.equals(algInputList.get(i).getInputName())) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     @Override
     public AlgorithmExecutionResult execute(long acqTime, long genTime, ProcessingContext pctx) {
+        if (ackFlagsIdx >= 0 && inputValues.get(ackFlagsIdx) != null) {
+            long ackFlags = inputValues.get(ackFlagsIdx).getEngValue().toLong();
+            // stage 1 -> bit 0, stage 3 -> bit 1, stage 5 -> bit 2, stage 7 -> bit 3
+            int mask = 1 << ((verificationStage - 1) / 2);
+            if ((ackFlags & mask) == 0) {
+                return new AlgorithmExecutionResult(inputValues,
+                        VerificationResult.skip("acknowledgement not requested (ack flags: " + ackFlags + ")"),
+                        Collections.emptyList());
+            }
+        }
         for (int i = 0; i < 5; i++) {
             if (inputValues.get(i) == null) {
                 log.trace("Returning NO_RESULT because no value available for input {}", i);
