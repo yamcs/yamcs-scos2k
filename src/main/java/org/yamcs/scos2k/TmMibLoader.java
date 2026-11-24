@@ -451,6 +451,9 @@ public abstract class TmMibLoader extends BaseMibLoader {
 
             log.debug("Parsing and compiling {}", f);
             String olCode = new String(Files.readAllBytes(f.toPath()), StandardCharsets.ISO_8859_1);
+            if (olCode.isBlank()) {
+                throw new MibLoadException(ctx, "Empty synthetic file " + f);
+            }
             outpara.setLongDescription("```\n" + olCode + "\n```");
             OLParser parser = new OLParser(new StringReader(olCode));
             code = parser.generateCodeStandalone(mp.name(), name -> {
